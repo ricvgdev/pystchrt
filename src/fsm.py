@@ -1,3 +1,6 @@
+'''
+Finite State Machine
+'''
 import types
 
 def get_object_class(obj):

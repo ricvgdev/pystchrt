@@ -1,3 +1,6 @@
+'''
+Hierarchical State Machine
+'''
 import fsm
 
 class Event(fsm.Event):
