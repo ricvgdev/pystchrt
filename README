@@ -1,3 +1,9 @@
 pystchrt - Python Statecharts
 
-An incomplete Python implementation of UML statecharts. 
+Description
+===========
+
+An incomplete Python implementation of UML statecharts.
+
+This package includes the Python sources, unit tests, example application of
+an FSM, and Eclipse/PyDev configuration files.
