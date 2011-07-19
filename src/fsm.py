@@ -43,7 +43,7 @@ class Event(object):
         return issubclass(event_cls, (Event))
 
 
-def get_true(*args):
+def alwaysTrueGuard(*args):
     return True
 
 def get_false(*args):
@@ -53,46 +53,101 @@ def nop(*args, **kargs):
     pass
 
 
-class EventHandlerWithGuardAndEffect(object):
+class EventHandlerResponse(object):
+    
+    def __new__(cls, handler):
+        EventHandlerResponse.__assertArgIsAnEventHandler(handler)
+        response = object.__new__(cls)
+        response.wasEffectTriggered = EventHandlerResponse.__getHandlerEffectGuardResult(handler)
+        return response
+    
+    @staticmethod
+    def __getHandlerEffectGuardResult(handler):
+        return handler.guard_result
+    
+    @staticmethod
+    def __assertArgIsAnEventHandler(arg):
+        assert(isinstance(arg, EventHandlerWithGuardAndEffect))
 
-    def __new__(cls, guard, effect):
-        assert(isinstance(guard, (types.FunctionType, types.MethodType)))
-        assert(isinstance(effect, (types.FunctionType, types.MethodType)))
+
+class EventHandlerWithGuardAndEffect(object):
+    """Handles event by passing this to a guard and effect function"""
+
+    def __new__(cls, guard, effect, response_type):
         handler = object.__new__(cls)
         handler.guard = guard
         handler.effect = effect
+        handler.last_event = None
+        handler.guard_result = None
+        handler.last_response = None
+        handler.__response_type = response_type
         return handler
     
-    def stimulate(self, event):
-        '''stimulate(event) -> Tuple(Boolean)'''
-        assert(Event.is_event_or_event_type(event))
-        if self.guard(event):
-            self.effect(event)
-            return (True,)
-        return (False,)
+    def process_event(self, event):
+        '''process_event(event) -> Tuple(Boolean)'''
+        self.last_event = event
+        self.__execGuardAndAssertOutputIsBoolean()
+        self.__execEffectIfGuardResultIsTrue()
+        self.__buildResponseWithGuardResult()
+        return self.last_response
+
+    def __execEffectIfGuardResultIsTrue(self):
+        self.__assertEffectIsNotNone()
+        if self.guard_result:
+            self.effect(self.last_event)
+
+    def __buildResponseWithGuardResult(self):
+        self.last_response = self.__response_type(self)
+    
+    def __assertGuardIsNotNone(self):
+        assert(not self.guard is None)
+        
+    def __assertEffectIsNotNone(self):
+        assert(not self.effect is None)
+        
+    def __execGuardAndAssertOutputIsBoolean(self):
+        self.__assertGuardIsNotNone()
+        self.guard_result = self.guard(self.last_event)
+        self.__assertGuardResultIsBoolean()
+    
+    def __assertGuardResultIsBoolean(self):
+        assert(type(self.guard_result) is bool)
+    
+    def __repr__(self):
+        return self.get_name()
 
     def get_name(self):
         effect = self.effect.__name__
         guard = self.guard.__name__
-        out = '[{guard}] {effect}()'.format(effect=effect, guard=guard)
+        
+        if self.guard == alwaysTrueGuard:
+            out = '{effect}()'.format(effect=effect)
+        else:
+            out = '[{guard}] {effect}()'.format(effect=effect, guard=guard)
         return out
+
+
+class TransitionResponse(EventHandlerResponse):
     
-    def __repr__(self):
-        return self.get_name()
+    def __new__(cls, transition):
+        response = EventHandlerResponse.__new__(cls, transition)
+        TransitionResponse.__addTargetToResponse(response, transition)
+        return response
+
+    @staticmethod
+    def __addTargetToResponse(response, transition):
+        if response.wasEffectTriggered:
+            response.target = transition.target
+        else:
+            response.target = None
 
 
 class TransitionWithGuardAndEffect(EventHandlerWithGuardAndEffect):
     
     def __new__(cls, guard, target, effect):
-        transition = EventHandlerWithGuardAndEffect.__new__(cls, guard, effect)
+        transition = EventHandlerWithGuardAndEffect.__new__(cls, guard, effect, TransitionResponse)
         transition.target = target
         return transition
-    
-    def stimulate(self, event):
-        (triggered,) = EventHandlerWithGuardAndEffect.stimulate(self, event)
-        if triggered:
-            return (True, self.target)
-        return (False, None)
     
     def get_name(self):
         name = EventHandlerWithGuardAndEffect.get_name(self)
@@ -112,7 +167,7 @@ class TransitionWithGuard(TransitionWithGuardAndEffect):
 class TransitionWithEffect(TransitionWithGuardAndEffect):
 
     def __new__(cls, target, effect):
-        tran = TransitionWithGuardAndEffect.__new__(cls, guard=get_true,
+        tran = TransitionWithGuardAndEffect.__new__(cls, guard=alwaysTrueGuard,
                                                     target=target, effect=effect)
         return tran
 
@@ -120,7 +175,7 @@ class TransitionWithEffect(TransitionWithGuardAndEffect):
 class Transition(TransitionWithGuardAndEffect):
 
     def __new__(cls, target):
-        tran = TransitionWithGuardAndEffect.__new__(cls, guard=get_true,
+        tran = TransitionWithGuardAndEffect.__new__(cls, guard=alwaysTrueGuard,
                                                     target=target, effect=nop)
         return tran
 
@@ -136,7 +191,7 @@ class ActivityWithGuard(EventHandlerWithGuardAndEffect):
 class Activity(ActivityWithGuard):
     
     def __new__(cls, action):
-        activity = ActivityWithGuard.__new__(cls, guard=get_true, action=action)
+        activity = ActivityWithGuard.__new__(cls, guard=alwaysTrueGuard, action=action)
         return activity
 
 
@@ -146,15 +201,12 @@ class EventHandlers(object):
         self.handlers = []
         self.stop_at_first_trigger = stop_at_first_trigger
 
-    def stimulate(self, event):
+    def process_event(self, event):
         last_triggered_tuple = (False,)
         for handler in self.handlers:
-            tuple_res = handler.stimulate(event)
-            assert(isinstance(tuple_res, (tuple)))
-            assert(len(tuple_res) >= 1)
-            assert(isinstance(tuple_res[0], (bool)))
+            tuple_res = handler.process_event(event)
             
-            triggered = tuple_res[0]
+            triggered = tuple_res.wasEffectTriggered()
 
             if triggered:
                 last_triggered_tuple = tuple_res
@@ -164,8 +216,11 @@ class EventHandlers(object):
         return last_triggered_tuple
     
     def add_handler(self, handler):
-        assert(isinstance(handler, (EventHandlerWithGuardAndEffect)))
+        self.__assertArgIsAnEventHandler(handler)
         self.handlers.append(handler)
+    
+    def __assertArgIsAnEventHandler(self, arg):
+        assert(isinstance(arg, (EventHandlerWithGuardAndEffect)))
     
     def __iter__(self):
         for handler in self.handlers:
@@ -182,8 +237,8 @@ class TransitionList(EventHandlers):
         for transition in transitions_arg:
             self.add_transition(transition)
     
-    def stimulate(self, event):
-        tuple_res = EventHandlers.stimulate(self, event)
+    def process_event(self, event):
+        tuple_res = EventHandlers.process_event(self, event)
         if len(tuple_res) == 1:
             return (False, None)
         else:
@@ -236,13 +291,13 @@ class EventDictOfTransitions(EventDictOfHandlerLists):
     def __init__(self):
         EventDictOfHandlerLists.__init__(self)
 
-    def stimulate(self, event):
+    def process_event(self, event):
         if event not in self:
             return (False, None)
         
         event_cls = get_object_class(event)
         transition_list = self.list_dict[event_cls]
-        return transition_list.stimulate(event)
+        return transition_list.process_event(event)
 
     def add_transition(self, event, transition):
         event_cls = get_object_class(event)
@@ -264,13 +319,13 @@ class EventDictOfActivities(EventDictOfHandlerLists):
     def __init__(self):
         EventDictOfHandlerLists.__init__(self)
 
-    def stimulate(self, event):
+    def process_event(self, event):
         if event not in self:
             return (False,)
         
         event_cls = get_object_class(event)
         transition_list = self.list_dict[event_cls]
-        return transition_list.stimulate(event)
+        return transition_list.process_event(event)
 
     def add_activity(self, event, activity):
         event_cls = get_object_class(event)
@@ -322,17 +377,17 @@ class State(object):
         self.transitions = EventDictOfTransitions()
         self._active = False
 
-    def stimulate(self, event):
-        activity_triggered, = self.activities.stimulate(event)
-        transition_triggered, target = self.transitions.stimulate(event)
+    def process_event(self, event):
+        activity_triggered, = self.activities.process_event(event)
+        transition_triggered, target = self.transitions.process_event(event)
         return StimulusResponse(activity_triggered, transition_triggered, target)
         
     def enter(self):
         self._active = True
-        return State.stimulate(self, State.EnterEvent)
+        return State.process_event(self, State.EnterEvent)
     
     def exit(self):
-        exit_response = State.stimulate(self, State.ExitEvent)
+        exit_response = State.process_event(self, State.ExitEvent)
         self._active = False
         return exit_response
     
@@ -422,12 +477,12 @@ class FSM(object):
     def start(self):
         assert(self.current == self.initial or self.current == self.final)
         self.current = self.initial
-        return self.stimulate(State.EnterEvent)
+        return self.process_event(State.EnterEvent)
 
     def stop(self):
         if self.current != self.final:
             self.final.add_final_transition_to_other(other=self.current)
-            return self.stimulate(State.ExitEvent)
+            return self.process_event(State.ExitEvent)
         else:
             return StimulusResponse(False, False, None)
     
@@ -444,7 +499,7 @@ class FSM(object):
         assert(state in self or state == self.final)
         self.initial.set_initial_transition(state)
     
-    def stimulate(self, event):
+    def process_event(self, event):
         while True:
             response, send_unnamed = self._dipatch_to_current(event)
             
@@ -456,7 +511,7 @@ class FSM(object):
 
     def _dipatch_to_current(self, event):
 
-        response = self.current.stimulate(event)
+        response = self.current.process_event(event)
         
         exit = StimulusResponse(False, False, None)
         enter = StimulusResponse(False, False, None)
@@ -465,7 +520,7 @@ class FSM(object):
             exit = self.current.exit()
             self.current = response.get_target()
             enter = self.current.enter()
-            self.state_change_activities.stimulate(Event)
+            self.state_change_activities.process_event(Event)
             unnamed_event_needed = True
         
         agregated_response = StimulusResponse(   response.did_act() or exit.did_act()

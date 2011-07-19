@@ -116,10 +116,10 @@ class SimpleState(fsm.State):
         fsm.State.__init__(self, name = name)
         self.parent = None
     
-    def stimulate(self, event):
-        single_response = fsm.State.stimulate(self, event)
+    def process_event(self, event):
+        single_response = fsm.State.process_event(self, event)
         if not single_response.did_act_or_requested_transition() and self.has_parent():
-            return self.parent.stimulate(event)
+            return self.parent.process_event(event)
         else:
             return single_response
     
@@ -219,7 +219,7 @@ class HSM(object):
 
     def _dipatch_to_current(self, event):
         
-        response = self.current.stimulate(event)
+        response = self.current.process_event(event)
         
         if not response.was_transition_requested():
             return response
@@ -248,7 +248,7 @@ class HSM(object):
                 activity = True
         
         self.current = enter_stack[-1]
-        self.top.state_change_activities.stimulate(Event)
+        self.top.state_change_activities.process_event(Event)
         
         start_response = self.current.start()
         return StimulusResponse(activity or start_response.did_act(), True, self.current)
@@ -263,12 +263,12 @@ class HSM(object):
         if fsm.State.ExitEvent == fsm.get_object_class(event) and self.no_final_transition:
             return False, False, None
 
-        activity, transition, target = self.current.stimulate(event)
+        activity, transition, target = self.current.process_event(event)
         
         if transition and None != target:
             self.current.exit()
             self.current = target
             self.current.enter()
-            self.state_change_activities.stimulate(Event)
+            self.state_change_activities.process_event(Event)
         
         return activity, transition, target

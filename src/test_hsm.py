@@ -174,12 +174,12 @@ class HSMTester(unittest.TestCase):
     def test02_SimpleState(self):
         event = hsm.Event()
         state = hsm.SimpleState()
-        response = state.stimulate(event)
+        response = state.process_event(event)
         assert(not response.did_act_or_requested_transition())
         
         set_A = hsm.Activity(self.set_A)
         state.add_activity(event, set_A)
-        response = state.stimulate(event)
+        response = state.process_event(event)
         assert(response.did_act())
         assert(not response.was_transition_requested())
         assert(response.did_act_or_requested_transition())
@@ -189,7 +189,7 @@ class HSMTester(unittest.TestCase):
         stateB = hsm.SimpleState()
         to_B = hsm.Transition(stateB)
         state.add_transition(event2, to_B)
-        response = state.stimulate(event2)
+        response = state.process_event(event2)
         assert(not response.did_act())
         assert(response.was_transition_requested())
         assert(response.did_act_or_requested_transition())
@@ -403,7 +403,7 @@ class HSMTester(unittest.TestCase):
         assert(self.is_E_clr() and self.is_F_clr())
         assert(self.is_G_clr() and self.is_H_clr())
 
-        activity, transition, target = sm.stimulate(event)
+        activity, transition, target = sm.process_event(event)
         assert(activity)
         assert(transition)
         assert(state2a == target)

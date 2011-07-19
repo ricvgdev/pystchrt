@@ -1,6 +1,13 @@
 import unittest
 import fsm
 
+class TestEventHandler(unittest.TestCase):
+    
+    def setUp(self):
+        pass
+    
+    
+
 class Test(unittest.TestCase):
     
     def setUp(self):
@@ -93,7 +100,7 @@ class Test(unittest.TestCase):
         event = fsm.Event()
         state = fsm.State()
         transition = fsm.Transition(state)
-        triggered, target = transition.stimulate(event)
+        triggered, target = transition.process_event(event)
         assert(triggered)
         assert(target == state)
 
@@ -102,7 +109,7 @@ class Test(unittest.TestCase):
         state = fsm.State()
         trans_with_effect = fsm.TransitionWithEffect(target=state, effect=self.set_A)
         assert(self.is_A_clr())
-        triggered, target = trans_with_effect.stimulate(event)
+        triggered, target = trans_with_effect.process_event(event)
         assert(triggered)
         assert(target == state)
         assert(self.is_A_set())
@@ -114,7 +121,7 @@ class Test(unittest.TestCase):
                                                       target=state,
                                                       effect=self.set_B)
         assert(self.is_A_clr() and self.is_B_clr())
-        triggered, target = transition.stimulate(event)
+        triggered, target = transition.process_event(event)
         assert(not triggered)
         assert(target == None)
         assert(self.is_A_clr() and self.is_B_clr())
@@ -122,7 +129,7 @@ class Test(unittest.TestCase):
         self.set_A()
 
         assert(self.is_A_set() and self.is_B_clr())
-        triggered, target = transition.stimulate(event)
+        triggered, target = transition.process_event(event)
         assert(triggered)
         assert(target == state)
         assert(self.is_A_set() and self.is_B_set())
@@ -132,7 +139,7 @@ class Test(unittest.TestCase):
         activity = fsm.Activity(action=self.set_A)
         
         assert(self.is_A_clr())
-        triggered, = activity.stimulate(event)
+        triggered, = activity.process_event(event)
         assert(triggered)
         assert(self.is_A_set())
 
@@ -143,7 +150,7 @@ class Test(unittest.TestCase):
         
         assert(self.is_A_clr())
         assert(self.is_B_clr())
-        triggered, = activity.stimulate(event)
+        triggered, = activity.process_event(event)
         assert(not triggered)
         assert(self.is_A_clr())
         assert(self.is_B_clr())
@@ -152,7 +159,7 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_set())
         assert(self.is_B_clr())
-        triggered, = activity.stimulate(event)
+        triggered, = activity.process_event(event)
         assert(triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
@@ -172,7 +179,7 @@ class Test(unittest.TestCase):
         transitions.add_transition(transB)
 
         assert(self.is_C_clr())
-        triggered, target = transitions.stimulate(event)
+        triggered, target = transitions.process_event(event)
         assert(not triggered)
         assert(None == target)
         assert(self.is_C_clr())
@@ -180,7 +187,7 @@ class Test(unittest.TestCase):
         self.set_A()
 
         assert(self.is_C_clr())
-        triggered, target = transitions.stimulate(event)
+        triggered, target = transitions.process_event(event)
         assert(triggered)
         assert(stateA == target)
         assert(self.is_C_set())
@@ -188,7 +195,7 @@ class Test(unittest.TestCase):
         self.clr_A()
         self.set_B()
         assert(self.is_D_clr())
-        triggered, target = transitions.stimulate(event)
+        triggered, target = transitions.process_event(event)
         assert(triggered)
         assert(stateB == target)
         assert(self.is_D_set())
@@ -199,7 +206,7 @@ class Test(unittest.TestCase):
         self.set_A()
         assert(self.is_C_clr())
         assert(self.is_D_clr())
-        triggered, target = transitions.stimulate(event)
+        triggered, target = transitions.process_event(event)
         assert(triggered)
         assert(stateA == target)
         assert(self.is_C_set())
@@ -214,7 +221,7 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_clr() and self.is_B_clr())
         assert(self.is_C_clr() and self.is_D_clr())
-        triggered, = activities.stimulate(event)
+        triggered, = activities.process_event(event)
         assert(not triggered)
         assert(self.is_A_clr() and self.is_B_clr())
         assert(self.is_C_clr() and self.is_D_clr())
@@ -223,7 +230,7 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_set())
         assert(self.is_B_clr() and self.is_C_clr() and self.is_D_clr())
-        triggered, = activities.stimulate(event)
+        triggered, = activities.process_event(event)
         assert(triggered)
         assert(self.is_A_set() and self.is_B_set())
         assert(self.is_C_clr() and self.is_D_clr())
@@ -233,7 +240,7 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_set() and self.is_C_set())
         assert(self.is_B_clr() and self.is_D_clr())
-        triggered, = activities.stimulate(event)
+        triggered, = activities.process_event(event)
         assert(triggered)
         assert(    self.is_A_set() and self.is_B_set()
                and self.is_C_set() and self.is_D_set())
@@ -259,28 +266,28 @@ class Test(unittest.TestCase):
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.stimulate(ev0)
+        triggered, = act_dict.process_event(ev0)
         assert(not triggered)
         assert(self.is_A_clr())
         assert(self.is_B_clr())
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.stimulate(ev1)
+        triggered, = act_dict.process_event(ev1)
         assert(triggered)
         assert(self.is_A_set())
         assert(self.is_B_clr())
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.stimulate(ev2)
+        triggered, = act_dict.process_event(ev2)
         assert(triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.stimulate(ev3)
+        triggered, = act_dict.process_event(ev3)
         assert(not triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
@@ -289,7 +296,7 @@ class Test(unittest.TestCase):
         
         self.set_C()
 
-        triggered, = act_dict.stimulate(ev3)
+        triggered, = act_dict.process_event(ev3)
         assert(triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
@@ -326,36 +333,36 @@ class Test(unittest.TestCase):
         assert(    self.is_A_clr() and self.is_B_clr()
                and self.is_C_clr() and self.is_D_clr())
 
-        triggered, target = trans_dict.stimulate(ev0)
+        triggered, target = trans_dict.process_event(ev0)
         assert(not triggered)
         assert(None == target)
 
-        triggered, target = trans_dict.stimulate(ev1)
+        triggered, target = trans_dict.process_event(ev1)
         assert(triggered)
         assert(stateA == target)
 
-        triggered, target = trans_dict.stimulate(ev2)
+        triggered, target = trans_dict.process_event(ev2)
         assert(not triggered)
         assert(None == target)
 
         self.set_B()
-        triggered, target = trans_dict.stimulate(ev2)
+        triggered, target = trans_dict.process_event(ev2)
         assert(triggered)
         assert(stateB == target)
 
         assert(self.is_C_clr())
-        triggered, target = trans_dict.stimulate(ev3)
+        triggered, target = trans_dict.process_event(ev3)
         assert(triggered)
         assert(stateC == target)
         assert(self.is_C_set())
 
-        triggered, target = trans_dict.stimulate(ev4)
+        triggered, target = trans_dict.process_event(ev4)
         assert(not triggered)
         assert(None == target)
 
         self.set_A()
         assert(self.is_D_clr())
-        triggered, target = trans_dict.stimulate(ev4)
+        triggered, target = trans_dict.process_event(ev4)
         assert(triggered)
         assert(stateD == target)
         assert(self.is_D_set())
@@ -498,7 +505,7 @@ class Test(unittest.TestCase):
         
         assert(self.is_A_clr() and self.is_B_clr() and self.is_C_clr())
         
-        activity, transition, target = state.stimulate(event)
+        activity, transition, target = state.process_event(event)
         assert(activity)
         assert(not transition)
         assert(None == target)
@@ -509,7 +516,7 @@ class Test(unittest.TestCase):
         self.set_C()
         assert(self.is_A_clr() and self.is_B_clr() and self.is_C_set())
         
-        activity, transition, target = state.stimulate(event)
+        activity, transition, target = state.process_event(event)
         assert(activity)
         assert(not transition)
         assert(None == target)
@@ -547,21 +554,21 @@ class Test(unittest.TestCase):
         assert(    self.is_A_clr() and self.is_B_clr()
                and self.is_C_clr() and self.is_D_clr())
 
-        activity, transition, target = state.stimulate(ev0)
+        activity, transition, target = state.process_event(ev0)
         assert(not activity)
         assert(not transition)
         assert(None == target)
         assert(    self.is_A_clr() and self.is_B_clr()
                and self.is_C_clr() and self.is_D_clr())
 
-        activity, transition, target = state.stimulate(ev1)
+        activity, transition, target = state.process_event(ev1)
         assert(not activity)
         assert(transition)
         assert(stateA == target)
         assert(    self.is_A_clr() and self.is_B_clr()
                and self.is_C_clr() and self.is_D_clr())
 
-        activity, transition, target = state.stimulate(ev2)
+        activity, transition, target = state.process_event(ev2)
         assert(not activity)
         assert(not transition)
         assert(None == target)
@@ -569,21 +576,21 @@ class Test(unittest.TestCase):
                and self.is_C_clr() and self.is_D_clr())
 
         self.set_B()
-        activity, transition, target = state.stimulate(ev2)
+        activity, transition, target = state.process_event(ev2)
         assert(not activity)
         assert(transition)
         assert(stateB == target)
         assert(self.is_A_clr() and self.is_C_clr() and self.is_D_clr())
         assert(self.is_B_set())
 
-        activity, transition, target = state.stimulate(ev3)
+        activity, transition, target = state.process_event(ev3)
         assert(not activity)
         assert(transition)
         assert(stateC == target)
         assert(self.is_A_clr() and self.is_D_clr())
         assert(self.is_B_set() and self.is_C_set())
 
-        activity, transition, target = state.stimulate(ev4)
+        activity, transition, target = state.process_event(ev4)
         assert(not activity)
         assert(not transition)
         assert(None == target)
@@ -591,7 +598,7 @@ class Test(unittest.TestCase):
         assert(self.is_B_set() and self.is_C_set())
 
         self.set_A()
-        activity, transition, target = state.stimulate(ev4)
+        activity, transition, target = state.process_event(ev4)
         assert(not activity)
         assert(transition)
         assert(stateD == target)
@@ -611,7 +618,7 @@ class Test(unittest.TestCase):
         assert(not transition)
         assert(None == target)
 
-        activity, transition, target = stateA.stimulate(fsm.State.UnnamedEvent)
+        activity, transition, target = stateA.process_event(fsm.State.UnnamedEvent)
         assert(stateA.is_active())
         assert(not activity)
         assert(transition)
@@ -631,7 +638,7 @@ class Test(unittest.TestCase):
         
         self.set_A()
         assert(stateB.is_active())
-        activity, transition, target = stateB.stimulate(fsm.State.UnnamedEvent)
+        activity, transition, target = stateB.process_event(fsm.State.UnnamedEvent)
         assert(stateB.is_active())
         assert(not activity)
         assert(transition)
@@ -742,7 +749,7 @@ class Test(unittest.TestCase):
         assert(self.is_C_set() and self.is_D_clr())
         assert(self.is_E_clr() and self.is_F_clr())
 
-        activity, transition, target = sm.stimulate(event)
+        activity, transition, target = sm.process_event(event)
         assert(not activity)
         assert(not transition)
         assert(None == target)

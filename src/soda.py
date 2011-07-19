@@ -290,7 +290,7 @@ class SodaMachine(object):
     def dispatch(self, event):
         if CoinDeposited == event:
             self.display_msg('Last amount: $%.2f' % (event.value))
-        self.sm.stimulate(event)
+        self.sm.process_event(event)
     
     def process_key(self, key):
         event = None
