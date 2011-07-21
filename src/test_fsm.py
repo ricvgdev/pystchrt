@@ -5,7 +5,16 @@ class TestEventHandler(unittest.TestCase):
     
     def setUp(self):
         pass
-    
+
+
+class TestEvent:
+    pass
+
+
+class TestState(fsm.State):
+
+    def __init__(self):
+        fsm.State.__init__(self, name="")
     
 
 class Test(unittest.TestCase):
@@ -90,49 +99,46 @@ class Test(unittest.TestCase):
     def is_F_clr(self, event=None):
         return not self.F
     
-    def test001_Event(self, event=None):
-        assert(not fsm.Event.is_event_or_event_type(None))
-
-        instance = fsm.Event()
-        assert(fsm.Event.is_event_or_event_type(instance))
-    
-    def test01_Transition(self):
-        event = fsm.Event()
-        state = fsm.State()
-        transition = fsm.Transition(state)
-        triggered, target = transition.process_event(event)
-        assert(triggered)
-        assert(target == state)
-
-    def test02_TransitionWithEffect(self):
-        event = fsm.Event()
-        state = fsm.State()
-        trans_with_effect = fsm.TransitionWithEffect(target=state, effect=self.set_A)
-        assert(self.is_A_clr())
-        triggered, target = trans_with_effect.process_event(event)
-        assert(triggered)
-        assert(target == state)
-        assert(self.is_A_set())
-    
-    def test03_TransitionEffectWithGuard(self):
-        event = fsm.Event()
-        state = fsm.State()
+    def test01_TransitionWithGuardAndEffect(self):
+        event = TestEvent()
+        state = TestState()
         transition = fsm.TransitionWithGuardAndEffect(guard=self.is_A_set,
                                                       target=state,
                                                       effect=self.set_B)
         assert(self.is_A_clr() and self.is_B_clr())
-        triggered, target = transition.process_event(event)
-        assert(not triggered)
-        assert(target == None)
+
+        response = transition.process_event(event)
+        assert(not response.was_effect_triggered)
+        assert(response.target == None)
         assert(self.is_A_clr() and self.is_B_clr())
         
         self.set_A()
-
         assert(self.is_A_set() and self.is_B_clr())
-        triggered, target = transition.process_event(event)
-        assert(triggered)
-        assert(target == state)
+
+        response = transition.process_event(event)
+        assert(response.was_effect_triggered)
+        assert(response.target == state)
         assert(self.is_A_set() and self.is_B_set())
+
+    def test02_TransitionWithEffect(self):
+        event = TestEvent()
+        state = TestState()
+        trans_with_effect = fsm.TransitionWithEffect(target=state, effect=self.set_A)
+
+        assert(self.is_A_clr())
+
+        response = trans_with_effect.process_event(event)
+        assert(response.was_effect_triggered)
+        assert(response.target == state)
+        assert(self.is_A_set())
+    
+    def test03_Transition(self):
+        event = fsm.Event()
+        state = fsm.State()
+        transition = fsm.Transition(state)
+        response = transition.process_event(event)
+        assert(response.was_effect_triggered)
+        assert(response.target == state)
 
     def test04_Activity(self):
         event = fsm.Event()

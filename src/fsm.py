@@ -2,6 +2,7 @@
 Finite State Machine
 '''
 import types
+from abc import ABCMeta, abstractmethod
 
 def get_object_class(obj):
     if    isinstance(obj, types.ClassType) \
@@ -44,47 +45,54 @@ class Event(object):
 
 
 def alwaysTrueGuard(*args):
+    """Used to define event handlers without guard that always execute
+    the effect method"""
     return True
-
-def get_false(*args):
-    return False
 
 def nop(*args, **kargs):
     pass
 
 
-class EventHandlerResponse(object):
+class EventHandlerResponse:
+    """Abstract type used to define generic behavior for handler event result"""
     
-    def __new__(cls, handler):
+    __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def __init__(self, handler):
+        """Verifies that the argument is of type EventHandler and it records
+        the handler's last guard execution result"""
         EventHandlerResponse.__assertArgIsAnEventHandler(handler)
-        response = object.__new__(cls)
-        response.wasEffectTriggered = EventHandlerResponse.__getHandlerEffectGuardResult(handler)
-        return response
-    
-    @staticmethod
-    def __getHandlerEffectGuardResult(handler):
-        return handler.guard_result
-    
+        self.was_effect_triggered = handler.guard_result
+        
     @staticmethod
     def __assertArgIsAnEventHandler(arg):
         assert(isinstance(arg, EventHandlerWithGuardAndEffect))
 
 
-class EventHandlerWithGuardAndEffect(object):
-    """Handles event by passing this to a guard and effect function"""
+class EventHandlerWithGuardAndEffect:
+    """Abstract class with general functionality for event handlers"""
+    
+    __metaclass__ = ABCMeta
 
-    def __new__(cls, guard, effect, response_type):
-        handler = object.__new__(cls)
-        handler.guard = guard
-        handler.effect = effect
-        handler.last_event = None
-        handler.guard_result = None
-        handler.last_response = None
-        handler.__response_type = response_type
-        return handler
+    @abstractmethod
+    def __init__(self, guard, effect, response_type):
+        """Event handler requires a guard and effect method and the response
+        type to be returned when an event is processed"""
+        self.guard = guard
+        self.effect = effect
+        self.last_event = None
+        self.guard_result = None
+        self.last_response = None
+        self.__response_type = response_type
+        self.__assertResponseTypeisSubclassOfEventHandlerResponse()
+    
+    def __assertResponseTypeisSubclassOfEventHandlerResponse(self):
+        assert(issubclass(self.__response_type, EventHandlerResponse))
     
     def process_event(self, event):
-        '''process_event(event) -> Tuple(Boolean)'''
+        """Executes effect method if guard is True and return an instance
+        of self.__response_type"""
         self.last_event = event
         self.__execGuardAndAssertOutputIsBoolean()
         self.__execEffectIfGuardResultIsTrue()
@@ -128,56 +136,53 @@ class EventHandlerWithGuardAndEffect(object):
 
 
 class TransitionResponse(EventHandlerResponse):
+    """Result of a transition after handling an event"""
     
-    def __new__(cls, transition):
-        response = EventHandlerResponse.__new__(cls, transition)
-        TransitionResponse.__addTargetToResponse(response, transition)
-        return response
+    def __init__(self, transition):
+        EventHandlerResponse.__init__(self, transition)
+        self.__addTargetToResponse(transition)
 
-    @staticmethod
-    def __addTargetToResponse(response, transition):
-        if response.wasEffectTriggered:
-            response.target = transition.target
+    def __addTargetToResponse(self, transition):
+        if self.was_effect_triggered:
+            self.target = transition.target
         else:
-            response.target = None
+            self.target = None
 
 
 class TransitionWithGuardAndEffect(EventHandlerWithGuardAndEffect):
     
-    def __new__(cls, guard, target, effect):
-        transition = EventHandlerWithGuardAndEffect.__new__(cls, guard, effect, TransitionResponse)
-        transition.target = target
-        return transition
+    def __init__(self, guard, target, effect):
+        EventHandlerWithGuardAndEffect.__init__(self, guard, effect, TransitionResponse)
+        self.target = target
     
     def get_name(self):
-        name = EventHandlerWithGuardAndEffect.get_name(self)
+        name = EventHandlerWithGuardAndEffect.get_name(self) + ' -> '
         if None != self.target:
-            name += ' -> ' + self.target.get_name()
+            name += self.target.get_name()
         return name
     
 
 class TransitionWithGuard(TransitionWithGuardAndEffect):
 
-    def __new__(cls, guard, target):
-        tran = TransitionWithGuardAndEffect.__new__(cls, guard=guard,
-                                                    target=target, effect=nop)
-        return tran
+    def __init__(self, guard, target):
+        TransitionWithGuardAndEffect.__init__(self, guard=guard,
+                                              target=target, effect=nop)
 
 
 class TransitionWithEffect(TransitionWithGuardAndEffect):
 
-    def __new__(cls, target, effect):
-        tran = TransitionWithGuardAndEffect.__new__(cls, guard=alwaysTrueGuard,
-                                                    target=target, effect=effect)
-        return tran
+    def __init__(self, target, effect):
+        TransitionWithGuardAndEffect.__init__(self, guard=alwaysTrueGuard,
+                                              target=target, effect=effect)
 
 
 class Transition(TransitionWithGuardAndEffect):
+    """Type used to define an unnamed transition (i.e. triggers always a
+    transition to the target state"""
 
-    def __new__(cls, target):
-        tran = TransitionWithGuardAndEffect.__new__(cls, guard=alwaysTrueGuard,
-                                                    target=target, effect=nop)
-        return tran
+    def __init__(self, target):
+        TransitionWithGuardAndEffect.__init__(self, guard=alwaysTrueGuard,
+                                              target=target, effect=nop)
 
 
 class ActivityWithGuard(EventHandlerWithGuardAndEffect):
@@ -206,7 +211,7 @@ class EventHandlers(object):
         for handler in self.handlers:
             tuple_res = handler.process_event(event)
             
-            triggered = tuple_res.wasEffectTriggered()
+            triggered = tuple_res.was_effect_triggered()
 
             if triggered:
                 last_triggered_tuple = tuple_res
@@ -359,7 +364,9 @@ class StimulusResponse(tuple):
         return self[2]
 
 
-class State(object):
+class State:
+    
+    __metaclass__ = ABCMeta
     
     class EnterEvent(Event):
         pass
@@ -370,6 +377,7 @@ class State(object):
     class UnnamedEvent(Event):
         pass
     
+    @abstractmethod
     def __init__(self, name = ''):
         object.__init__(self)
         self.name = name
@@ -442,19 +450,27 @@ class StateList(list):
 class FSM(object):
     
     class InitialState(State):
+        
+        def __init__(self):
+            State.__init__(self, name="")
 
         def set_initial_transition(self, other):
             transition = Transition(target=other)
             self.transitions.clear(State.UnnamedEvent)
             self.transitions.add_transition(State.UnnamedEvent, transition)
-    
+
+
     class FinalState(State):
+
+        def __init__(self):
+            State.__init__(self, name="")
 
         def add_final_transition_to_other(self, other):
             if other != self:
                 to_final = Transition(self)
                 other.add_transition(State.ExitEvent, to_final)
     
+
     def __init__(self, states =[], initial = InitialState(), final = FinalState()):
         object.__init__(self)
         self.state_change_activities = ActivityList()
