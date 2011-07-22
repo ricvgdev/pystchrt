@@ -107,17 +107,17 @@ class Test(unittest.TestCase):
                                                       effect=self.set_B)
         assert(self.is_A_clr() and self.is_B_clr())
 
-        response = transition.process_event(event)
-        assert(not response.was_effect_triggered)
-        assert(response.target == None)
+        result = transition.process_event(event)
+        assert(not result.handler_triggered)
+        assert(result.target == None)
         assert(self.is_A_clr() and self.is_B_clr())
         
         self.set_A()
         assert(self.is_A_set() and self.is_B_clr())
 
-        response = transition.process_event(event)
-        assert(response.was_effect_triggered)
-        assert(response.target == state)
+        result = transition.process_event(event)
+        assert(result.handler_triggered)
+        assert(result.target == state)
         assert(self.is_A_set() and self.is_B_set())
 
     def test02_TransitionWithEffect(self):
@@ -127,18 +127,18 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_clr())
 
-        response = trans_with_effect.process_event(event)
-        assert(response.was_effect_triggered)
-        assert(response.target == state)
+        result = trans_with_effect.process_event(event)
+        assert(result.handler_triggered)
+        assert(result.target == state)
         assert(self.is_A_set())
     
     def test03_Transition(self):
         event = fsm.Event()
         state = fsm.State()
         transition = fsm.Transition(state)
-        response = transition.process_event(event)
-        assert(response.was_effect_triggered)
-        assert(response.target == state)
+        result = transition.process_event(event)
+        assert(result.handler_triggered)
+        assert(result.target == state)
 
     def test04_Activity(self):
         event = fsm.Event()

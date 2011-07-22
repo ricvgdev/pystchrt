@@ -53,22 +53,34 @@ def nop(*args, **kargs):
     pass
 
 
-class EventHandlerResponse:
-    """Abstract type used to define generic behavior for handler event result"""
+class EventHandlerResult:
+    """Abstract type used to define generic behavior for result objects"""
     
     __metaclass__ = ABCMeta
     
     @abstractmethod
     def __init__(self, handler):
-        """Verifies that the argument is of type EventHandler and it records
-        the handler's last guard execution result"""
-        EventHandlerResponse.__assertArgIsAnEventHandler(handler)
-        self.was_effect_triggered = handler.guard_result
+        """Builds by default a result as if the handler's guard returned
+        False and no effect method was executed, then it retrieves the
+        actual guard result if handler is valid."""
+        self.__setAsIfHandlerDidNothing()
+        self.__getHandlerGuardResultIfHandlerIsNotNone(handler)
+    
+    def was_handler_triggered(self):
+        return self.handler_triggered
+    
+    def __setAsIfHandlerDidNothing(self):
+        self.handler_triggered = False
+        
+    def __getHandlerGuardResultIfHandlerIsNotNone(self, handler):
+        if None != handler:
+            EventHandlerResult.__assertArgIsAnEventHandler(handler)
+            self.handler_triggered = handler.guard_result
         
     @staticmethod
     def __assertArgIsAnEventHandler(arg):
         assert(isinstance(arg, EventHandlerWithGuardAndEffect))
-
+    
 
 class EventHandlerWithGuardAndEffect:
     """Abstract class with general functionality for event handlers"""
@@ -88,7 +100,7 @@ class EventHandlerWithGuardAndEffect:
         self.__assertResponseTypeisSubclassOfEventHandlerResponse()
     
     def __assertResponseTypeisSubclassOfEventHandlerResponse(self):
-        assert(issubclass(self.__response_type, EventHandlerResponse))
+        assert(issubclass(self.__response_type, EventHandlerResult))
     
     def process_event(self, event):
         """Executes effect method if guard is True and return an instance
@@ -135,24 +147,30 @@ class EventHandlerWithGuardAndEffect:
         return out
 
 
-class TransitionResponse(EventHandlerResponse):
+class TransitionResult(EventHandlerResult):
     """Result of a transition after handling an event"""
     
     def __init__(self, transition):
-        EventHandlerResponse.__init__(self, transition)
+        EventHandlerResult.__init__(self, transition)
         self.__addTargetToResponse(transition)
 
     def __addTargetToResponse(self, transition):
-        if self.was_effect_triggered:
+        if None != transition and self.handler_triggered:
             self.target = transition.target
         else:
             self.target = None
+    
+    @staticmethod
+    def buildResultForUntriggeredTransition():
+        return TransitionResult(transition=None)
+
 
 
 class TransitionWithGuardAndEffect(EventHandlerWithGuardAndEffect):
+    """Transition that executes an effect if the guard is True"""
     
     def __init__(self, guard, target, effect):
-        EventHandlerWithGuardAndEffect.__init__(self, guard, effect, TransitionResponse)
+        EventHandlerWithGuardAndEffect.__init__(self, guard, effect, TransitionResult)
         self.target = target
     
     def get_name(self):
@@ -163,6 +181,7 @@ class TransitionWithGuardAndEffect(EventHandlerWithGuardAndEffect):
     
 
 class TransitionWithGuard(TransitionWithGuardAndEffect):
+    """Transition that is only valid if the guard returns True"""
 
     def __init__(self, guard, target):
         TransitionWithGuardAndEffect.__init__(self, guard=guard,
@@ -170,6 +189,7 @@ class TransitionWithGuard(TransitionWithGuardAndEffect):
 
 
 class TransitionWithEffect(TransitionWithGuardAndEffect):
+    """Transition that is always valid and that executes an effect"""
 
     def __init__(self, target, effect):
         TransitionWithGuardAndEffect.__init__(self, guard=alwaysTrueGuard,
@@ -177,55 +197,71 @@ class TransitionWithEffect(TransitionWithGuardAndEffect):
 
 
 class Transition(TransitionWithGuardAndEffect):
-    """Type used to define an unnamed transition (i.e. triggers always a
-    transition to the target state"""
+    """Simple transition that is always valid"""
 
     def __init__(self, target):
         TransitionWithGuardAndEffect.__init__(self, guard=alwaysTrueGuard,
                                               target=target, effect=nop)
 
 
+class ActivityResult(EventHandlerResult):
+    
+    def __init__(self, activity):
+        EventHandlerResult.__init__(self, activity)
+    
+    @staticmethod
+    def buildResultForUntriggeredActivity():
+        return ActivityResult(activity=None)
+
+
 class ActivityWithGuard(EventHandlerWithGuardAndEffect):
     
-    def __new__(cls, guard, action):
-        activity = EventHandlerWithGuardAndEffect.__new__(cls, guard=guard,
-                                                          effect=action)
-        return activity
+    def __init__(self, guard, action):
+        EventHandlerWithGuardAndEffect.__init__(self, guard=guard,
+                                effect=action, response_type = ActivityResult)
 
 
 class Activity(ActivityWithGuard):
     
-    def __new__(cls, action):
-        activity = ActivityWithGuard.__new__(cls, guard=alwaysTrueGuard, action=action)
-        return activity
+    def __init__(self, action):
+        ActivityWithGuard.__init__(self, guard=alwaysTrueGuard, action=action)
 
 
-class EventHandlers(object):
+class EventHandlerList:
     
-    def __init__(self, stop_at_first_trigger):
+    __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def __init__(self, stop_at_first_trigger, untriggered_response):
+        EventHandlerList.__assertArgIsOfEventHandlerResultType(untriggered_response)
         self.handlers = []
         self.stop_at_first_trigger = stop_at_first_trigger
+        self.untriggered_response = untriggered_response
 
     def process_event(self, event):
-        last_triggered_tuple = (False,)
+        response = None
         for handler in self.handlers:
-            tuple_res = handler.process_event(event)
+            response = handler.process_event(event)
             
-            triggered = tuple_res.was_effect_triggered()
-
-            if triggered:
-                last_triggered_tuple = tuple_res
-            
-            if self.stop_at_first_trigger and triggered:
+            if self.stop_at_first_trigger and response.handler_triggered:
                 break
-        return last_triggered_tuple
+        
+        if None == response:
+            response = self.untriggered_response
+        
+        return response
     
-    def add_handler(self, handler):
-        self.__assertArgIsAnEventHandler(handler)
+    def __add_handler(self, handler):
+        EventHandlerList.__assertArgIsAnEventHandler(handler)
         self.handlers.append(handler)
     
-    def __assertArgIsAnEventHandler(self, arg):
+    @staticmethod
+    def __assertArgIsAnEventHandler(arg):
         assert(isinstance(arg, (EventHandlerWithGuardAndEffect)))
+    
+    @staticmethod
+    def __assertArgIsOfEventHandlerResultType(arg):
+        assert(isinstance(arg, (EventHandlerResult)))
     
     def __iter__(self):
         for handler in self.handlers:
@@ -235,43 +271,32 @@ class EventHandlers(object):
         return self.handlers.__repr__()
 
 
-class TransitionList(EventHandlers):
+class TransitionList(EventHandlerList):
     
     def __init__(self, transitions_arg = []):
-        EventHandlers.__init__(self, stop_at_first_trigger=True)
+        EventHandlerList.__init__(self, stop_at_first_trigger=True,
+                               TransitionResult.buildResultForUntriggeredTransition())
         for transition in transitions_arg:
             self.add_transition(transition)
-    
-    def process_event(self, event):
-        tuple_res = EventHandlers.process_event(self, event)
-        if len(tuple_res) == 1:
-            return (False, None)
-        else:
-            return tuple_res 
 
     def add_transition(self, transition):
         assert(isinstance(transition, (TransitionWithGuardAndEffect)))
-        EventHandlers.add_handler(self, handler=transition)
+        EventHandlerList.__add_handler(self, handler=transition)
     
-    def add_handler(self, handler):
-        # Don't use this. Use add_transition instead.
-        assert(False)
     
 
-class ActivityList(EventHandlers):
+class ActivityList(EventHandlerList):
     
     def __init__(self, activities_arg = []):
-        EventHandlers.__init__(self, stop_at_first_trigger=False)
+        EventHandlerList.__init__(self, stop_at_first_trigger=False,
+                               ActivityResult.buildResultForUntriggeredActivity())
         for activity in activities_arg:
             self.add_activity(activity)
     
     def add_activity(self, activity):
         assert(isinstance(activity, (ActivityWithGuard)))
-        EventHandlers.add_handler(self, handler=activity)
+        EventHandlerList.__add_handler(self, handler=activity)
     
-    def add_handler(self, handler):
-        # Don't use this. Use add_activity instead.
-        assert(False)
     
 
 class EventDictOfHandlerLists(object):
