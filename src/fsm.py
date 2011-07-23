@@ -87,7 +87,7 @@ class EventHandlerWithGuardAndEffect:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def __init__(self, guard, effect, response_type):
+    def __init__(self, guard, effect, result_type):
         """Event handler requires a guard and effect method and the response
         type to be returned when an event is processed"""
         self.guard = guard
@@ -95,7 +95,7 @@ class EventHandlerWithGuardAndEffect:
         self.last_event = None
         self.guard_result = None
         self.last_response = None
-        self.__response_type = response_type
+        self.__response_type = result_type
         self.__assertResponseTypeisSubclassOfEventHandlerResponse()
     
     def __assertResponseTypeisSubclassOfEventHandlerResponse(self):
@@ -219,7 +219,7 @@ class ActivityWithGuard(EventHandlerWithGuardAndEffect):
     
     def __init__(self, guard, action):
         EventHandlerWithGuardAndEffect.__init__(self, guard=guard,
-                                effect=action, response_type = ActivityResult)
+                                effect=action, result_type = ActivityResult)
 
 
 class Activity(ActivityWithGuard):
@@ -256,7 +256,8 @@ class EventHandlerList:
         
         return last_result
     
-    def _add_handler(self, handler):
+    @abstractmethod
+    def add_handler(self, handler):
         EventHandlerList.__assertArgIsAnEventHandler(handler)
         self.handlers.append(handler)
     
@@ -291,15 +292,15 @@ class TransitionList(EventHandlerList):
         self.with_unguarded_transition = False
 
         for transition in transitions_arg:
-            self.add_transition(transition)
+            self.add_handler(transition)
     
     def containsUnguardedTransition(self):
         return self.with_unguarded_transition
 
-    def add_transition(self, transition):
+    def add_handler(self, transition):
         self.__assertIsATransition(transition)
         self.__setFlagIfTransitionIsUnguarded(transition)
-        EventHandlerList._add_handler(self, handler=transition)
+        EventHandlerList.add_handler(self, handler=transition)
     
     def __setFlagIfTransitionIsUnguarded(self, transition):
         if TransitionList.__transitionHasAlwaysTrueGuard(transition):
@@ -319,109 +320,90 @@ class TransitionList(EventHandlerList):
     
 
 class ActivityList(EventHandlerList):
-    """List of activities used to automatically handle an event by
-    all activities"""
+    """Holds multiple activities and injects the received event to each."""
     
     def __init__(self, activities_arg = []):
         EventHandlerList.__init__(self, stop_at_first_trigger=False,
             untriggered_response = ActivityResult.buildResultForUntriggeredActivity())
         for activity in activities_arg:
-            self.add_activity(activity)
+            self.add_handler(activity)
     
-    def add_activity(self, activity):
+    def add_handler(self, activity):
         assert(isinstance(activity, (ActivityWithGuard)))
-        EventHandlerList._add_handler(self, handler=activity)
+        EventHandlerList.add_handler(self, handler=activity)
     
     
 
-class EventDictOfHandlerLists(object):
+class EventDictOfHandlerLists:
     
-    def __init__(self):
+    __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def __init__(self, list_type, untriggered_result):
         object.__init__(self)
         self.list_dict = {}
+        self.__list_type = list_type
+        self.__untriggered_result = untriggered_result
+    
+    def process_event(self, event):
+        if event in self:
+            handler_list = self[event]
+            return handler_list.process_event(event)
+        else:
+            return self.__untriggered_result
+    
+    def add_handler(self, event, handler):
+        event_type = get_object_class(event)
+        self.__addEmptyListIfEventNotInDict(event_type)
+        self.__addHandlerToListForEventType(event_type, handler)
+    
+    def clear_handlers_for_event(self, event):
+        event_type = get_object_class(event)
+        if event_type in self.list_dict:
+            del self.list_dict[event_type]
+    
+    def __getitem__(self, key):
+        event_type = get_object_class(key)
+        return self.list_dict[event_type]
+    
+    def __addEmptyListIfEventNotInDict(self, event_type):
+        if event_type not in self.list_dict:
+            self.list_dict[event_type] = self.__list_type()
+    
+    def __addHandlerToListForEventType(self, event_type, handler):
+        handler_list = self.list_dict[event_type]
+        handler_list.add_handler(handler)
     
     def __contains__(self, event):
-        return self.has_handlers_for_event(event)
+        return self.is_event_a_dict_key(event)
     
-    def has_handlers_for_event(self, event):
+    def is_event_a_dict_key(self, event):
         event_cls = get_object_class(event)
         return event_cls in self.list_dict
     
     def __repr__(self):
         return self.list_dict.__repr__()
-    
+
 
 class EventDictOfTransitions(EventDictOfHandlerLists):
 
     def __init__(self):
-        EventDictOfHandlerLists.__init__(self)
-
-    def process_event(self, event):
-        if event not in self:
-            return (False, None)
-        
-        event_cls = get_object_class(event)
-        transition_list = self.list_dict[event_cls]
-        return transition_list.process_event(event)
-
-    def add_transition(self, event, transition):
-        event_cls = get_object_class(event)
-        if event_cls not in self.list_dict:
-            self.list_dict[event_cls] = TransitionList()
-
-        transition_list = self.list_dict[event_cls]
-        transition_list.add_transition(transition)
-    
-    def clear(self, event):
-        event_cls = get_object_class(event)
-        if event_cls in self.list_dict:
-            del self.list_dict[event_cls]
-        
+        EventDictOfHandlerLists.__init__(self, list_type = TransitionList,
+            untriggered_result = TransitionResult.buildResultForUntriggeredTransition())       
 
 
 class EventDictOfActivities(EventDictOfHandlerLists):
 
     def __init__(self):
-        EventDictOfHandlerLists.__init__(self)
-
-    def process_event(self, event):
-        if event not in self:
-            return (False,)
-        
-        event_cls = get_object_class(event)
-        transition_list = self.list_dict[event_cls]
-        return transition_list.process_event(event)
-
-    def add_activity(self, event, activity):
-        event_cls = get_object_class(event)
-        if event_cls not in self.list_dict:
-            self.list_dict[event_cls] = ActivityList()
-
-        activity_list = self.list_dict[event_cls]
-        activity_list.add_activity(activity)
+        EventDictOfHandlerLists.__init__(self, list_type = ActivityList,
+            untriggered_result = ActivityResult.buildResultForUntriggeredActivity())
 
 
-class StimulusResponse(tuple):
+class TransitionAndActivityResult:
     
-    def __new__(cls, activity, transition, target):
-        assert(isinstance(activity, (bool)))
-        assert(isinstance(transition, (bool)))
-        if target != None:
-            assert(isinstance(transition, (bool)))
-        tpl = tuple.__new__(cls, (activity, transition, target))
-        return tpl
-    
-    def did_act_or_requested_transition(self):
-        return self.did_act() or self.was_transition_requested()
-
-    def did_act(self):
-        return self[0]
-    
-    def was_transition_requested(self):
-        return self[1] and None != self.get_target()
-    
-    def get_target(self):
-        return self[2]
+    def __init__(self, activity_result, transition_result):
+        self.activity = activity_result
+        self.transition = transition_result
 
 
 class State:
@@ -448,7 +430,7 @@ class State:
     def process_event(self, event):
         activity_triggered, = self.activities.process_event(event)
         transition_triggered, target = self.transitions.process_event(event)
-        return StimulusResponse(activity_triggered, transition_triggered, target)
+        return TransitionAndActivityResult(activity_triggered, transition_triggered, target)
         
     def enter(self):
         self._active = True
@@ -460,25 +442,25 @@ class State:
         return exit_response
     
     def start(self):
-        return StimulusResponse(False, False, None)
+        return TransitionAndActivityResult(False, False, None)
     
     def stop(self):
-        return StimulusResponse(False, False, None)
+        return TransitionAndActivityResult(False, False, None)
     
     def add_enter_activity(self, activity):
-        self.add_activity(event=State.EnterEvent, activity=activity)
+        self.add_handler(event=State.EnterEvent, activity=activity)
     
     def add_exit_activity(self, activity):
-        self.add_activity(event=State.ExitEvent, activity=activity)
+        self.add_handler(event=State.ExitEvent, activity=activity)
     
     def add_activity(self, event, activity):
-        self.activities.add_activity(event, activity)
+        self.activities.add_handler(event, activity)
     
     def add_unnamed_transition(self, transition):
-        self.add_transition(State.UnnamedEvent, transition)
+        self.add_handler(State.UnnamedEvent, transition)
     
-    def add_transition(self, event, transition):
-        self.transitions.add_transition(event, transition)
+    def add_handler(self, event, transition):
+        self.transitions.add_handler(event, transition)
     
     def has_activities_for(self, event):
         return event in self.activities
@@ -516,8 +498,8 @@ class FSM(object):
 
         def set_initial_transition(self, other):
             transition = Transition(target=other)
-            self.transitions.clear(State.UnnamedEvent)
-            self.transitions.add_transition(State.UnnamedEvent, transition)
+            self.transitions.clear_handlers_for_event(State.UnnamedEvent)
+            self.transitions.add_handler(State.UnnamedEvent, transition)
 
 
     class FinalState(State):
@@ -528,7 +510,7 @@ class FSM(object):
         def add_final_transition_to_other(self, other):
             if other != self:
                 to_final = Transition(self)
-                other.add_transition(State.ExitEvent, to_final)
+                other.add_handler(State.ExitEvent, to_final)
     
 
     def __init__(self, states =[], initial = InitialState(), final = FinalState()):
@@ -560,7 +542,7 @@ class FSM(object):
             self.final.add_final_transition_to_other(other=self.current)
             return self.process_event(State.ExitEvent)
         else:
-            return StimulusResponse(False, False, None)
+            return TransitionAndActivityResult(False, False, None)
     
     def add_start_activity(self, activity):
         self.initial.add_enter_activity(activity)
@@ -569,7 +551,7 @@ class FSM(object):
         self.final.add_enter_activity(activity)
     
     def add_on_transition_completed_activity(self, activity):
-        self.state_change_activities.add_activity(activity)
+        self.state_change_activities.add_handler(activity)
     
     def set_initial_state(self, state):
         assert(state in self or state == self.final)
@@ -589,8 +571,8 @@ class FSM(object):
 
         response = self.current.process_event(event)
         
-        exit = StimulusResponse(False, False, None)
-        enter = StimulusResponse(False, False, None)
+        exit = TransitionAndActivityResult(False, False, None)
+        enter = TransitionAndActivityResult(False, False, None)
         unnamed_event_needed = False
         if    response.was_transition_requested():
             exit = self.current.exit()
@@ -599,7 +581,7 @@ class FSM(object):
             self.state_change_activities.process_event(Event)
             unnamed_event_needed = True
         
-        agregated_response = StimulusResponse(   response.did_act() or exit.did_act()
+        agregated_response = TransitionAndActivityResult(   response.did_act() or exit.did_act()
                                               or enter.did_act(),
                                               response.was_transition_requested(),
                                               response.get_target())

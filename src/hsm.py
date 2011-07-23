@@ -74,7 +74,7 @@ class OldTransition(fsm.Transition):
         stack.reverse()
         return stack
 
-class StimulusResponse(fsm.StimulusResponse):
+class TransitionAndActivityResult(fsm.TransitionAndActivityResult):
     pass
 
 class StimulusResponseDict(dict):
@@ -87,7 +87,7 @@ class StimulusResponseDict(dict):
     
     def __setitem__(self, key, value):
         assert(isinstance(key, (SimpleState)))
-        assert(isinstance(value, (fsm.StimulusResponse)))
+        assert(isinstance(value, (fsm.TransitionAndActivityResult)))
         dict.__setitem__(self, key, value)
     
     def add_response_dict(self, res_dict):
@@ -124,10 +124,10 @@ class SimpleState(fsm.State):
             return single_response
     
     def start(self):
-        return StimulusResponse(False, False, None)
+        return TransitionAndActivityResult(False, False, None)
     
     def stop(self):
-        return StimulusResponse(False, False, None)
+        return TransitionAndActivityResult(False, False, None)
     
     def has_parent(self):
         return None != self.parent
@@ -251,7 +251,7 @@ class HSM(object):
         self.top.state_change_activities.process_event(Event)
         
         start_response = self.current.start()
-        return StimulusResponse(activity or start_response.did_act(), True, self.current)
+        return TransitionAndActivityResult(activity or start_response.did_act(), True, self.current)
 
     def fsm_dipatch_to_current(self, event):
         '''_dipatch_to_state(state, event) -> active_state, did_transition'''

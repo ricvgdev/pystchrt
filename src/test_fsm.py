@@ -184,8 +184,8 @@ class Test(unittest.TestCase):
                                                   target=stateB,
                                                   effect=self.set_D)
         transitions = fsm.TransitionList()
-        transitions.add_transition(transA)
-        transitions.add_transition(transB)
+        transitions.add_handler(transA)
+        transitions.add_handler(transB)
 
         assert(self.is_C_clr())
         result = transitions.process_event(event)
@@ -267,38 +267,38 @@ class Test(unittest.TestCase):
         setB = fsm.Activity(action=self.set_B)
         setDifCset = fsm.ActivityWithGuard(guard=self.is_C_set, action=self.set_D)
         act_dict = fsm.EventDictOfActivities()
-        act_dict.add_activity(event=ev1, activity=setA)
-        act_dict.add_activity(event=ev2, activity=setB)
-        act_dict.add_activity(event=ev3, activity=setDifCset)
+        act_dict.add_handler(ev1, setA)
+        act_dict.add_handler(ev2, setB)
+        act_dict.add_handler(ev3, setDifCset)
 
         assert(self.is_A_clr())
         assert(self.is_B_clr())
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.process_event(ev0)
-        assert(not triggered)
+        result = act_dict.process_event(ev0)
+        assert(not result.handler_triggered)
         assert(self.is_A_clr())
         assert(self.is_B_clr())
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.process_event(ev1)
-        assert(triggered)
+        result = act_dict.process_event(ev1)
+        assert(result.handler_triggered)
         assert(self.is_A_set())
         assert(self.is_B_clr())
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.process_event(ev2)
-        assert(triggered)
+        result = act_dict.process_event(ev2)
+        assert(result.handler_triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
         assert(self.is_C_clr())
         assert(self.is_D_clr())
 
-        triggered, = act_dict.process_event(ev3)
-        assert(not triggered)
+        result = act_dict.process_event(ev3)
+        assert(not result.handler_triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
         assert(self.is_C_clr())
@@ -306,18 +306,18 @@ class Test(unittest.TestCase):
         
         self.set_C()
 
-        triggered, = act_dict.process_event(ev3)
-        assert(triggered)
+        result = act_dict.process_event(ev3)
+        assert(result.handler_triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
         assert(self.is_C_set())
         assert(self.is_D_set())
     
     def test09_TransitionDict(self):
-        stateA = fsm.State()
-        stateB = fsm.State()
-        stateC = fsm.State()
-        stateD = fsm.State()
+        stateA = TestState()
+        stateB = TestState()
+        stateC = TestState()
+        stateD = TestState()
         class Event1(fsm.Event): pass
         class Event2(fsm.Event): pass
         class Event3(fsm.Event): pass
@@ -335,76 +335,76 @@ class Test(unittest.TestCase):
                                             target=stateD,
                                             effect=self.set_D)
         trans_dict = fsm.EventDictOfTransitions()
-        trans_dict.add_transition(ev1, to_A)
-        trans_dict.add_transition(ev2, to_B_if_B_set)
-        trans_dict.add_transition(ev3, set_C_and_go_to_C)
-        trans_dict.add_transition(ev4, set_D_and_go_to_D_if_A_set)
+        trans_dict.add_handler(ev1, to_A)
+        trans_dict.add_handler(ev2, to_B_if_B_set)
+        trans_dict.add_handler(ev3, set_C_and_go_to_C)
+        trans_dict.add_handler(ev4, set_D_and_go_to_D_if_A_set)
 
         assert(    self.is_A_clr() and self.is_B_clr()
                and self.is_C_clr() and self.is_D_clr())
 
-        triggered, target = trans_dict.process_event(ev0)
-        assert(not triggered)
-        assert(None == target)
+        result = trans_dict.process_event(ev0)
+        assert(not result.handler_triggered)
+        assert(None == result.target)
 
-        triggered, target = trans_dict.process_event(ev1)
-        assert(triggered)
-        assert(stateA == target)
+        result = trans_dict.process_event(ev1)
+        assert(result.handler_triggered)
+        assert(stateA == result.target)
 
-        triggered, target = trans_dict.process_event(ev2)
-        assert(not triggered)
-        assert(None == target)
+        result = trans_dict.process_event(ev2)
+        assert(not result.handler_triggered)
+        assert(None == result.target)
 
         self.set_B()
-        triggered, target = trans_dict.process_event(ev2)
-        assert(triggered)
-        assert(stateB == target)
+        result = trans_dict.process_event(ev2)
+        assert(result.handler_triggered)
+        assert(stateB == result.target)
 
         assert(self.is_C_clr())
-        triggered, target = trans_dict.process_event(ev3)
-        assert(triggered)
-        assert(stateC == target)
+        result = trans_dict.process_event(ev3)
+        assert(result.handler_triggered)
+        assert(stateC == result.target)
         assert(self.is_C_set())
 
-        triggered, target = trans_dict.process_event(ev4)
-        assert(not triggered)
-        assert(None == target)
+        result = trans_dict.process_event(ev4)
+        assert(not result.handler_triggered)
+        assert(None == result.target)
 
         self.set_A()
         assert(self.is_D_clr())
-        triggered, target = trans_dict.process_event(ev4)
-        assert(triggered)
-        assert(stateD == target)
+        result = trans_dict.process_event(ev4)
+        assert(result.handler_triggered)
+        assert(stateD == result.target)
         assert(self.is_D_set())
     
     def test10_StimulusResponse(self):
-        res = fsm.StimulusResponse(False, False, None)
+        res = fsm.TransitionAndActivityResult(False, False, None)
         assert(not res.did_act())
         assert(not res.was_transition_requested())
         assert(None == res.get_target())
         assert(not res.did_act_or_requested_transition())
 
-        res = fsm.StimulusResponse(True, False, None)
+        res = fsm.TransitionAndActivityResult(True, False, None)
         assert(res.did_act())
         assert(not res.was_transition_requested())
         assert(None == res.get_target())
         assert(res.did_act_or_requested_transition())
     
-        res = fsm.StimulusResponse(False, True, None)
+        res = fsm.TransitionAndActivityResult(False, True, None)
         assert(not res.did_act())
         assert(not res.was_transition_requested())
         assert(None == res.get_target())
         assert(not res.did_act_or_requested_transition())
 
         state = fsm.State()
-        res = fsm.StimulusResponse(False, True, state)
+        res = fsm.TransitionAndActivityResult(False, True, state)
         assert(not res.did_act())
         assert(res.was_transition_requested())
         assert(state == res.get_target())
         assert(res.did_act_or_requested_transition())
 
         state = fsm.State()
-        res = fsm.StimulusResponse(True, True, state)
+        res = fsm.TransitionAndActivityResult(True, True, state)
         assert(res.did_act())
         assert(res.was_transition_requested())
         assert(state == res.get_target())
@@ -510,8 +510,8 @@ class Test(unittest.TestCase):
         set_B_if_C_set = fsm.ActivityWithGuard(guard=self.is_C_set,
                                                action=self.set_B)
         state = fsm.State()
-        state.add_activity(event, set_A)
-        state.add_activity(event, set_B_if_C_set)
+        state.add_handler(event, set_A)
+        state.add_handler(event, set_B_if_C_set)
         
         assert(self.is_A_clr() and self.is_B_clr() and self.is_C_clr())
         
@@ -556,10 +556,10 @@ class Test(unittest.TestCase):
                                             target=stateD,
                                             effect=self.set_D)
     
-        state.add_transition(ev1, to_A)
-        state.add_transition(ev2, to_B_if_B_set)
-        state.add_transition(ev3, set_C_and_go_to_C)
-        state.add_transition(ev4, set_D_and_go_to_D_if_A_set)
+        state.add_handler(ev1, to_A)
+        state.add_handler(ev2, to_B_if_B_set)
+        state.add_handler(ev3, set_C_and_go_to_C)
+        state.add_handler(ev4, set_D_and_go_to_D_if_A_set)
 
         assert(    self.is_A_clr() and self.is_B_clr()
                and self.is_C_clr() and self.is_D_clr())
@@ -734,7 +734,7 @@ class Test(unittest.TestCase):
         state2 = fsm.State()
 
         to_2 = fsm.Transition(state2)
-        state1.add_transition(event, to_2)
+        state1.add_handler(event, to_2)
 
         sm = fsm.FSM([state1, state2])
         

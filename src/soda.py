@@ -201,7 +201,7 @@ class SodaMachine(object):
         to_waitingForFunds_while_adding_funds = fsm.TransitionWithEffect(
                 target=self.waitingForFunds,
                 effect=self.add_coin_to_bin)
-        self.idle.add_transition(event=CoinDeposited,
+        self.idle.add_handler(event=CoinDeposited,
                                  transition=to_waitingForFunds_while_adding_funds)
 
         to_waitingForSelection_if_enough_money = fsm.TransitionWithGuard(
@@ -214,15 +214,15 @@ class SodaMachine(object):
 
         self.waitingForFunds.add_enter_activity(do_clear_screen_waitForFunds)
         self.waitingForFunds.add_unnamed_transition(to_waitingForSelection_if_enough_money)
-        self.waitingForFunds.add_transition(CoinDeposited, to_waitingForSelection_if_enough_money)
-        self.waitingForFunds.add_transition(ReturnMoney, to_refundingChange)
-        self.waitingForFunds.add_activity(CoinDeposited, do_add_coin)
+        self.waitingForFunds.add_handler(CoinDeposited, to_waitingForSelection_if_enough_money)
+        self.waitingForFunds.add_handler(ReturnMoney, to_refundingChange)
+        self.waitingForFunds.add_handler(CoinDeposited, do_add_coin)
         
         to_dispensing = fsm.Transition(target=self.dispensing)
         
-        self.waitingForSelection.add_transition(ReturnMoney, to_refundingChange)
-        self.waitingForSelection.add_activity(CoinDeposited, do_add_coin)
-        self.waitingForSelection.add_transition(DrinkSelected, to_dispensing)
+        self.waitingForSelection.add_handler(ReturnMoney, to_refundingChange)
+        self.waitingForSelection.add_handler(CoinDeposited, do_add_coin)
+        self.waitingForSelection.add_handler(DrinkSelected, to_dispensing)
         
         do_dispense_and_charge_price = fsm.Activity(self.dispense_drink_and_extract_price_from_bin)
         

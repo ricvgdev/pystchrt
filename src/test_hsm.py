@@ -127,10 +127,10 @@ class HSMTester(unittest.TestCase):
     
     def test01_StimulusResponseDict(self):
         state = hsm.SimpleState()
-        res_clr_act_clr_trans = hsm.StimulusResponse(False, False, None)
-        res_set_act_clr_trans = hsm.StimulusResponse(True, False, None)
-        res_clr_act_set_trans = hsm.StimulusResponse(False, True, state)
-        res_set_act_set_trans = hsm.StimulusResponse(True, True, state)
+        res_clr_act_clr_trans = hsm.TransitionAndActivityResult(False, False, None)
+        res_set_act_clr_trans = hsm.TransitionAndActivityResult(True, False, None)
+        res_clr_act_set_trans = hsm.TransitionAndActivityResult(False, True, state)
+        res_set_act_set_trans = hsm.TransitionAndActivityResult(True, True, state)
         
         state1 = hsm.SimpleState()
         state2 = hsm.SimpleState()
@@ -178,7 +178,7 @@ class HSMTester(unittest.TestCase):
         assert(not response.did_act_or_requested_transition())
         
         set_A = hsm.Activity(self.set_A)
-        state.add_activity(event, set_A)
+        state.add_handler(event, set_A)
         response = state.process_event(event)
         assert(response.did_act())
         assert(not response.was_transition_requested())
@@ -188,7 +188,7 @@ class HSMTester(unittest.TestCase):
         event2 = Event2()
         stateB = hsm.SimpleState()
         to_B = hsm.Transition(stateB)
-        state.add_transition(event2, to_B)
+        state.add_handler(event2, to_B)
         response = state.process_event(event2)
         assert(not response.did_act())
         assert(response.was_transition_requested())
@@ -376,7 +376,7 @@ class HSMTester(unittest.TestCase):
         
         event = hsm.Event()
         
-        state1.add_transition(event, to_2a)
+        state1.add_handler(event, to_2a)
         
         sm.set_initial_state(state1)
         
