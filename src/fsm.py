@@ -404,6 +404,15 @@ class TransitionAndActivityResult:
     def __init__(self, activity_result, transition_result):
         self.activity = activity_result
         self.transition = transition_result
+    
+    def was_transition_requested(self):
+        return None != self.transition.target
+    
+    @staticmethod
+    def buildUntriggeredActivityAndTransition():
+        return TransitionAndActivityResult(
+                    activity_result = ActivityResult.buildResultForUntriggeredActivity(),
+                    transition_result = TransitionResult.buildResultForUntriggeredTransition())
 
 
 class State:
@@ -489,6 +498,17 @@ class StateList(list):
     pass
 
 
+class StateEventHandlingResult:
+    
+    def __init__(self, event_res, enter_res, exit_res):
+        self.event_res = event_res
+        self.enter_res = enter_res
+        self.exit_res = exit_res
+    
+    def was_transition_requested(self):
+        return self.enter_res.was_transition_requested()
+
+
 class FSM(object):
     
     class InitialState(State):
@@ -510,7 +530,7 @@ class FSM(object):
         def add_final_transition_to_other(self, other):
             if other != self:
                 to_final = Transition(self)
-                other.add_handler(State.ExitEvent, to_final)
+                other.add_transition(State.ExitEvent, to_final)
     
 
     def __init__(self, states =[], initial = InitialState(), final = FinalState()):
@@ -542,7 +562,7 @@ class FSM(object):
             self.final.add_final_transition_to_other(other=self.current)
             return self.process_event(State.ExitEvent)
         else:
-            return TransitionAndActivityResult(False, False, None)
+            return TransitionAndActivityResult.buildUntriggeredActivityAndTransition()
     
     def add_start_activity(self, activity):
         self.initial.add_enter_activity(activity)
@@ -559,33 +579,32 @@ class FSM(object):
     
     def process_event(self, event):
         while True:
-            response, send_unnamed = self._dipatch_to_current(event)
+            state_res, send_unnamed = self._dipatch_to_current(event)
             
             if send_unnamed or event == State.EnterEvent:
                 event = State.UnnamedEvent
-            elif not response.was_transition_requested():
+            elif not state_res.was_transition_requested():
                 break
-        return response
+        return state_res
 
     def _dipatch_to_current(self, event):
 
-        response = self.current.process_event(event)
+        event_res = self.current.process_event(event)
         
-        exit = TransitionAndActivityResult(False, False, None)
-        enter = TransitionAndActivityResult(False, False, None)
+        exit_res = TransitionAndActivityResult.buildUntriggeredActivityAndTransition()
+        enter_res = TransitionAndActivityResult.buildUntriggeredActivityAndTransition()
         unnamed_event_needed = False
-        if    response.was_transition_requested():
-            exit = self.current.exit()
-            self.current = response.get_target()
-            enter = self.current.enter()
+        if    event_res.was_transition_requested():
+            exit_res = self.current.exit()
+            self.current = event_res.transition.target
+            enter_res = self.current.enter()
             self.state_change_activities.process_event(Event)
             unnamed_event_needed = True
         
-        agregated_response = TransitionAndActivityResult(   response.did_act() or exit.did_act()
-                                              or enter.did_act(),
-                                              response.was_transition_requested(),
-                                              response.get_target())
-        return (agregated_response, unnamed_event_needed)
+        state_res = StateEventHandlingResult(event_res = event_res,
+                                    enter_res = enter_res, exit_res = exit_res)
+        
+        return (state_res, unnamed_event_needed)
     
     def __contains__(self, state):
         return state in self.states
