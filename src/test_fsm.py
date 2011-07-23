@@ -134,30 +134,22 @@ class Test(unittest.TestCase):
     
     def test03_Transition(self):
         event = fsm.Event()
-        state = fsm.State()
+        state = TestState()
         transition = fsm.Transition(state)
         result = transition.process_event(event)
         assert(result.handler_triggered)
         assert(result.target == state)
 
-    def test04_Activity(self):
-        event = fsm.Event()
-        activity = fsm.Activity(action=self.set_A)
-        
-        assert(self.is_A_clr())
-        triggered, = activity.process_event(event)
-        assert(triggered)
-        assert(self.is_A_set())
-
-    def test05_ActivityWithGuard(self):
+    def test04_ActivityWithGuard(self):
         event = fsm.Event()
         activity = fsm.ActivityWithGuard(guard=self.is_A_set,
                                          action=self.set_B)
         
         assert(self.is_A_clr())
         assert(self.is_B_clr())
-        triggered, = activity.process_event(event)
-        assert(not triggered)
+
+        result = activity.process_event(event)
+        assert(not result.handler_triggered)
         assert(self.is_A_clr())
         assert(self.is_B_clr())
 
@@ -165,15 +157,26 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_set())
         assert(self.is_B_clr())
-        triggered, = activity.process_event(event)
-        assert(triggered)
+        
+        result = activity.process_event(event)
+        assert(result.handler_triggered)
         assert(self.is_A_set())
         assert(self.is_B_set())
     
+    def test05_Activity(self):
+        event = fsm.Event()
+        activity = fsm.Activity(action=self.set_A)
+        
+        assert(self.is_A_clr())
+
+        result = activity.process_event(event)
+        assert(result.handler_triggered)
+        assert(self.is_A_set())
+
     def test06_TransitionList(self):
         event = fsm.Event()
-        stateA = fsm.State()
-        stateB = fsm.State()
+        stateA = TestState()
+        stateB = TestState()
         transA = fsm.TransitionWithGuardAndEffect(guard=self.is_A_set,
                                                   target=stateA,
                                                   effect=self.set_C)
@@ -185,36 +188,36 @@ class Test(unittest.TestCase):
         transitions.add_transition(transB)
 
         assert(self.is_C_clr())
-        triggered, target = transitions.process_event(event)
-        assert(not triggered)
-        assert(None == target)
+        result = transitions.process_event(event)
+        assert(not result.handler_triggered)
+        assert(None == result.target)
         assert(self.is_C_clr())
         
         self.set_A()
 
         assert(self.is_C_clr())
-        triggered, target = transitions.process_event(event)
-        assert(triggered)
-        assert(stateA == target)
+        result = transitions.process_event(event)
+        assert(result.handler_triggered)
+        assert(stateA == result.target)
         assert(self.is_C_set())
 
         self.clr_A()
         self.set_B()
         assert(self.is_D_clr())
-        triggered, target = transitions.process_event(event)
-        assert(triggered)
-        assert(stateB == target)
+        result = transitions.process_event(event)
+        assert(result.handler_triggered)
+        assert(stateB == result.target)
         assert(self.is_D_set())
 
-        # If both guards are true, the first transtion should get triggered.
+        # If both guards are true, the first transition should get triggered.
         self.clr_C()
         self.clr_D()
         self.set_A()
         assert(self.is_C_clr())
         assert(self.is_D_clr())
-        triggered, target = transitions.process_event(event)
-        assert(triggered)
-        assert(stateA == target)
+        result = transitions.process_event(event)
+        assert(result.handler_triggered)
+        assert(stateA == result.target)
         assert(self.is_C_set())
         assert(self.is_D_clr())
     
@@ -227,8 +230,9 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_clr() and self.is_B_clr())
         assert(self.is_C_clr() and self.is_D_clr())
-        triggered, = activities.process_event(event)
-        assert(not triggered)
+
+        result = activities.process_event(event)
+        assert(not result.handler_triggered)
         assert(self.is_A_clr() and self.is_B_clr())
         assert(self.is_C_clr() and self.is_D_clr())
         
@@ -236,8 +240,8 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_set())
         assert(self.is_B_clr() and self.is_C_clr() and self.is_D_clr())
-        triggered, = activities.process_event(event)
-        assert(triggered)
+        result = activities.process_event(event)
+        assert(result.handler_triggered)
         assert(self.is_A_set() and self.is_B_set())
         assert(self.is_C_clr() and self.is_D_clr())
         
@@ -246,8 +250,8 @@ class Test(unittest.TestCase):
 
         assert(self.is_A_set() and self.is_C_set())
         assert(self.is_B_clr() and self.is_D_clr())
-        triggered, = activities.process_event(event)
-        assert(triggered)
+        result = activities.process_event(event)
+        assert(result.handler_triggered)
         assert(    self.is_A_set() and self.is_B_set()
                and self.is_C_set() and self.is_D_set())
         

@@ -5,29 +5,28 @@ import types
 from abc import ABCMeta, abstractmethod
 
 def get_object_class(obj):
+    """Returns the type of the argument""" 
     if    isinstance(obj, types.ClassType) \
        or isinstance(obj, types.TypeType):
+        # Return the argument if this one is a type.
         return obj
     elif isinstance(obj, types.NoneType):
+        # Special case: None
         return types.NoneType
     else:
+        # Argument type
         return obj.__class__
         
 
 class Event(object):
     
-    def __new__(cls, name = ''):
+    def __new__(cls):
         obj = object.__new__(cls)
-        obj.name = name
         return obj
     
     def get_name(self):
-        if self.name != '':
-            return self.name
-        else:
-            my_cls = get_object_class(self)
-            return my_cls.__name__
-
+        return get_object_class(self).__name__
+    
     def __repr__(self):
         return self.get_name()
     
@@ -215,6 +214,8 @@ class ActivityResult(EventHandlerResult):
 
 
 class ActivityWithGuard(EventHandlerWithGuardAndEffect):
+    """Event handler used to execute an action method whenever the guard
+    returns True when processing an event."""
     
     def __init__(self, guard, action):
         EventHandlerWithGuardAndEffect.__init__(self, guard=guard,
@@ -222,12 +223,16 @@ class ActivityWithGuard(EventHandlerWithGuardAndEffect):
 
 
 class Activity(ActivityWithGuard):
+    """Event handler that executes the action method whenever an event is
+    processed."""
     
     def __init__(self, action):
         ActivityWithGuard.__init__(self, guard=alwaysTrueGuard, action=action)
 
 
 class EventHandlerList:
+    """List of event handlers used to inject an event into each handler,
+    optionally stopping at the first handler that is triggered."""
     
     __metaclass__ = ABCMeta
     
@@ -239,19 +244,19 @@ class EventHandlerList:
         self.untriggered_response = untriggered_response
 
     def process_event(self, event):
-        response = None
+        last_result = self.untriggered_response
         for handler in self.handlers:
-            response = handler.process_event(event)
+            result = handler.process_event(event)
             
-            if self.stop_at_first_trigger and response.handler_triggered:
-                break
+            if result.handler_triggered:
+                last_result = result
+            
+                if self.stop_at_first_trigger:
+                    break
         
-        if None == response:
-            response = self.untriggered_response
-        
-        return response
+        return last_result
     
-    def __add_handler(self, handler):
+    def _add_handler(self, handler):
         EventHandlerList.__assertArgIsAnEventHandler(handler)
         self.handlers.append(handler)
     
@@ -272,30 +277,60 @@ class EventHandlerList:
 
 
 class TransitionList(EventHandlerList):
+    """List of transitions used to inject an event into all transitions until
+    one is triggered."""
     
     def __init__(self, transitions_arg = []):
         EventHandlerList.__init__(self, stop_at_first_trigger=True,
-                               TransitionResult.buildResultForUntriggeredTransition())
+            untriggered_response = TransitionResult.buildResultForUntriggeredTransition())
+
+        # Indicates if list contains a simple transition. A simple transition
+        # is always triggered, hence it will always overrule the
+        # other transitions. Note that the trigger process also depends on the
+        # position of the transition in the list.
+        self.with_unguarded_transition = False
+
         for transition in transitions_arg:
             self.add_transition(transition)
+    
+    def containsUnguardedTransition(self):
+        return self.with_unguarded_transition
 
     def add_transition(self, transition):
+        self.__assertIsATransition(transition)
+        self.__setFlagIfTransitionIsUnguarded(transition)
+        EventHandlerList._add_handler(self, handler=transition)
+    
+    def __setFlagIfTransitionIsUnguarded(self, transition):
+        if TransitionList.__transitionHasAlwaysTrueGuard(transition):
+            self.with_unguarded_transition = True
+    
+    @staticmethod
+    def __transitionHasAlwaysTrueGuard(transition):
+        return transition.guard == alwaysTrueGuard
+    
+    def __checkIfTransitionIsSimpleAndSetFlagIfSo(self, transition):
+        if isinstance(transition, (Transition)):
+            self.with_unguarded_transition = True
+    
+    def __assertIsATransition(self, transition):
         assert(isinstance(transition, (TransitionWithGuardAndEffect)))
-        EventHandlerList.__add_handler(self, handler=transition)
     
     
 
 class ActivityList(EventHandlerList):
+    """List of activities used to automatically handle an event by
+    all activities"""
     
     def __init__(self, activities_arg = []):
         EventHandlerList.__init__(self, stop_at_first_trigger=False,
-                               ActivityResult.buildResultForUntriggeredActivity())
+            untriggered_response = ActivityResult.buildResultForUntriggeredActivity())
         for activity in activities_arg:
             self.add_activity(activity)
     
     def add_activity(self, activity):
         assert(isinstance(activity, (ActivityWithGuard)))
-        EventHandlerList.__add_handler(self, handler=activity)
+        EventHandlerList._add_handler(self, handler=activity)
     
     
 
