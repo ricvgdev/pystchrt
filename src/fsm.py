@@ -428,9 +428,9 @@ class State:
         self._active = False
 
     def process_event(self, event):
-        activity_triggered, = self.activities.process_event(event)
-        transition_triggered, target = self.transitions.process_event(event)
-        return TransitionAndActivityResult(activity_triggered, transition_triggered, target)
+        activity_res = self.activities.process_event(event)
+        transition_res = self.transitions.process_event(event)
+        return TransitionAndActivityResult(activity_res, transition_res)
         
     def enter(self):
         self._active = True
@@ -448,18 +448,18 @@ class State:
         return TransitionAndActivityResult(False, False, None)
     
     def add_enter_activity(self, activity):
-        self.add_handler(event=State.EnterEvent, activity=activity)
+        self.add_activity(State.EnterEvent, activity)
     
     def add_exit_activity(self, activity):
-        self.add_handler(event=State.ExitEvent, activity=activity)
+        self.add_activity(State.ExitEvent, activity)
     
     def add_activity(self, event, activity):
         self.activities.add_handler(event, activity)
     
     def add_unnamed_transition(self, transition):
-        self.add_handler(State.UnnamedEvent, transition)
+        self.add_transition(State.UnnamedEvent, transition)
     
-    def add_handler(self, event, transition):
+    def add_transition(self, event, transition):
         self.transitions.add_handler(event, transition)
     
     def has_activities_for(self, event):
