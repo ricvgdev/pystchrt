@@ -7,8 +7,10 @@ class TestEventHandler(unittest.TestCase):
         pass
 
 
-class TestEvent:
-    pass
+class TestEvent(fsm.Event):
+    
+    def __init__(self):
+        fsm.Event.__init__(self)
 
 
 class TestState(fsm.State):
@@ -133,7 +135,7 @@ class Test(unittest.TestCase):
         assert(self.is_A_set())
     
     def test03_Transition(self):
-        event = fsm.Event()
+        event = TestEvent()
         state = TestState()
         transition = fsm.Transition(state)
         result = transition.process_event(event)
@@ -141,7 +143,7 @@ class Test(unittest.TestCase):
         assert(result.target == state)
 
     def test04_ActivityWithGuard(self):
-        event = fsm.Event()
+        event = TestEvent()
         activity = fsm.ActivityWithGuard(guard=self.is_A_set,
                                          action=self.set_B)
         
@@ -164,7 +166,7 @@ class Test(unittest.TestCase):
         assert(self.is_B_set())
     
     def test05_Activity(self):
-        event = fsm.Event()
+        event = TestEvent()
         activity = fsm.Activity(action=self.set_A)
         
         assert(self.is_A_clr())
@@ -174,7 +176,7 @@ class Test(unittest.TestCase):
         assert(self.is_A_set())
 
     def test06_TransitionList(self):
-        event = fsm.Event()
+        event = TestEvent()
         stateA = TestState()
         stateB = TestState()
         transA = fsm.TransitionWithGuardAndEffect(guard=self.is_A_set,
@@ -223,7 +225,7 @@ class Test(unittest.TestCase):
     
     
     def test07_ActivityList(self):
-        event = fsm.Event()
+        event = TestEvent()
         setBifAset = fsm.ActivityWithGuard(guard=self.is_A_set, action=self.set_B)
         setDifCset = fsm.ActivityWithGuard(guard=self.is_C_set, action=self.set_D)
         activities = fsm.ActivityList([setBifAset, setDifCset])
@@ -256,10 +258,16 @@ class Test(unittest.TestCase):
                and self.is_C_set() and self.is_D_set())
         
     def test08_ActivitiesDict(self):
-        class Event1(fsm.Event): pass
-        class Event2(fsm.Event): pass
-        class Event3(fsm.Event): pass
-        ev0 = fsm.Event()
+        class Event1(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event2(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event3(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        ev0 = TestEvent()
         ev1 = Event1()
         ev2 = Event2()
         ev3 = Event3()
@@ -318,11 +326,19 @@ class Test(unittest.TestCase):
         stateB = TestState()
         stateC = TestState()
         stateD = TestState()
-        class Event1(fsm.Event): pass
-        class Event2(fsm.Event): pass
-        class Event3(fsm.Event): pass
-        class Event4(fsm.Event): pass
-        ev0 = fsm.Event()
+        class Event1(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event2(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event3(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event4(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        ev0 = TestEvent()
         ev1 = Event1()
         ev2 = Event2()
         ev3 = Event3()
@@ -471,7 +487,7 @@ class Test(unittest.TestCase):
 
         
     def test14_StateActivities(self):
-        event = fsm.Event()
+        event = TestEvent()
         
         set_A = fsm.Activity(self.set_A)
         set_B_if_C_set = fsm.ActivityWithGuard(guard=self.is_C_set,
@@ -506,11 +522,19 @@ class Test(unittest.TestCase):
         stateB = TestState()
         stateC = TestState()
         stateD = TestState()
-        class Event1(fsm.Event): pass
-        class Event2(fsm.Event): pass
-        class Event3(fsm.Event): pass
-        class Event4(fsm.Event): pass
-        ev0 = fsm.Event()
+        class Event1(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event2(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event3(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        class Event4(fsm.Event):
+            def __init__(self):
+                fsm.Event.__init__(self)
+        ev0 = TestEvent()
         ev1 = Event1()
         ev2 = Event2()
         ev3 = Event3()
@@ -697,7 +721,7 @@ class Test(unittest.TestCase):
         set_E = fsm.Activity(self.set_E)
         set_F = fsm.Activity(self.set_F)
         
-        event = fsm.Event()
+        event = TestEvent()
         
         state1 = TestState()
         state2 = TestState()

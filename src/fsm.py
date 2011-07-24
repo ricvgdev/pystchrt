@@ -5,7 +5,9 @@ import types
 from abc import ABCMeta, abstractmethod
 
 def get_object_class(obj):
-    """Returns the type of the argument""" 
+    """Attempts to determine the type of the argument. It is useful for
+    identifying the type of event and allows the use of instances or
+    class definitions.""" 
     if    isinstance(obj, types.ClassType) \
        or isinstance(obj, types.TypeType):
         # Return the argument if this one is a type.
@@ -19,10 +21,13 @@ def get_object_class(obj):
         
 
 class Event(object):
+    """Base class used to define event classes."""
     
-    def __new__(cls):
-        obj = object.__new__(cls)
-        return obj
+    __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def __init__(self):
+        pass
     
     def get_name(self):
         return get_object_class(self).__name__
@@ -48,7 +53,10 @@ def alwaysTrueGuard(*args):
     the effect method"""
     return True
 
+
 def nop(*args, **kargs):
+    '''"No Operation" method used for event handler that do not execute
+    effect/actions.'''
     pass
 
 
