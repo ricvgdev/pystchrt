@@ -125,78 +125,55 @@ class HSMTester(unittest.TestCase):
     def tearDown(self):
         pass
     
-    def test01_StimulusResponseDict(self):
-        state = hsm.SimpleState()
-        res_clr_act_clr_trans = hsm.TransitionAndActivityResult(False, False, None)
-        res_set_act_clr_trans = hsm.TransitionAndActivityResult(True, False, None)
-        res_clr_act_set_trans = hsm.TransitionAndActivityResult(False, True, state)
-        res_set_act_set_trans = hsm.TransitionAndActivityResult(True, True, state)
-        
-        state1 = hsm.SimpleState()
-        state2 = hsm.SimpleState()
-        state3 = hsm.SimpleState()
-
-        responses = hsm.StimulusResponseDict({state1: res_clr_act_clr_trans,
-                                              state2: res_clr_act_clr_trans,
-                                              state3: res_clr_act_clr_trans})
-        assert(not responses.did_act())
-        assert(not responses.was_transition_requested())
-        assert(not responses.did_act_or_requested_transition())
+    class TestTransition(hsm.Transition):
+        def __init__(self, target):
+            hsm.Transition.__init__(self, target)
     
-        responses = hsm.StimulusResponseDict({state1: res_clr_act_clr_trans,
-                                              state2: res_clr_act_clr_trans,
-                                              state3: res_set_act_clr_trans})
-        assert(responses.did_act())
-        assert(not responses.was_transition_requested())
-        assert(responses.did_act_or_requested_transition())
+    class TestEvent(hsm.Event):
+        def __init__(self):
+            hsm.Event.__init__(self)
     
-        responses = hsm.StimulusResponseDict({state1: res_clr_act_clr_trans,
-                                              state2: res_clr_act_set_trans,
-                                              state3: res_clr_act_clr_trans})
-        assert(not responses.did_act())
-        assert(responses.was_transition_requested())
-        assert(responses.did_act_or_requested_transition())
+    class TestEvent2(hsm.Event):
+        def __init__(self):
+            hsm.Event.__init__(self)
     
-        responses = hsm.StimulusResponseDict({state1: res_clr_act_clr_trans,
-                                              state2: res_clr_act_set_trans,
-                                              state3: res_set_act_clr_trans})
-        assert(responses.did_act())
-        assert(responses.was_transition_requested())
-        assert(responses.did_act_or_requested_transition())
+    class TestSimpleState(hsm.SimpleState):
+        def __init__(self):
+            hsm.SimpleState.__init__(self)
     
-        responses = hsm.StimulusResponseDict({state1: res_clr_act_clr_trans,
-                                              state2: res_set_act_set_trans,
-                                              state3: res_clr_act_clr_trans})
-        assert(responses.did_act())
-        assert(responses.was_transition_requested())
-        assert(responses.did_act_or_requested_transition())
+    class TestCompositeState(hsm.CompositeState):
+        def __init__(self, states=[]):
+            hsm.CompositeState.__init__(self, states)
+    
+    class TestActivity(hsm.Activity):
+        def __init__(self, action):
+            hsm.Activity.__init__(self, action)
     
     def test02_SimpleState(self):
-        event = hsm.Event()
-        state = hsm.SimpleState()
+        event = HSMTester.TestEvent()
+        state = HSMTester.TestSimpleState()
         response = state.process_event(event)
         assert(not response.did_act_or_requested_transition())
         
-        set_A = hsm.Activity(self.set_A)
-        state.add_handler(event, set_A)
+        set_A = HSMTester.TestActivity(self.set_A)
+        state.add_activity(event, set_A)
         response = state.process_event(event)
         assert(response.did_act())
         assert(not response.was_transition_requested())
         assert(response.did_act_or_requested_transition())
         
-        class Event2(hsm.Event): pass
-        event2 = Event2()
-        stateB = hsm.SimpleState()
-        to_B = hsm.Transition(stateB)
-        state.add_handler(event2, to_B)
+        event2 = HSMTester.TestEvent2()
+        stateB = HSMTester.TestSimpleState()
+        to_B = HSMTester.TestTransition(stateB)
+        state.add_transition(event2, to_B)
         response = state.process_event(event2)
         assert(not response.did_act())
         assert(response.was_transition_requested())
         assert(response.did_act_or_requested_transition())
     
     def test03_CompositeState(self):
-        simple_state = hsm.SimpleState()
-        composite_state = hsm.CompositeState([simple_state])
+        simple_state = HSMTester.TestSimpleState()
+        composite_state = HSMTester.TestCompositeState([simple_state])
         assert(composite_state.current == composite_state.initial)
         
         set_A = hsm.Activity(self.set_A)
@@ -230,9 +207,9 @@ class HSMTester(unittest.TestCase):
         # Start composite and trigger transition to simple_state
         response = composite_state.start()
         assert(composite_state.current == simple_state)
-        assert(not response.did_act())
-        assert(not response.was_transition_requested())
-        assert(not response.did_act_or_requested_transition())
+        assert(not response.event_res.did_act())
+        assert(not response.event_res.was_transition_requested())
+        assert(not response.event_res.did_act_or_requested_transition())
         assert(self.is_A_set() and self.is_F_clr())
         assert(self.is_B_set() and self.is_E_clr())
         assert(self.is_C_set() and self.is_D_clr())
@@ -240,9 +217,9 @@ class HSMTester(unittest.TestCase):
         # Stop composite which triggers transition to final state
         response = composite_state.stop()
         assert(composite_state.current == composite_state.final)
-        assert(not response.did_act())
-        assert(not response.was_transition_requested())
-        assert(not response.did_act_or_requested_transition())
+        assert(not response.event_res.did_act())
+        assert(not response.event_res.was_transition_requested())
+        assert(not response.event_res.did_act_or_requested_transition())
         assert(self.is_A_set() and self.is_F_clr())
         assert(self.is_B_set() and self.is_E_set())
         assert(self.is_C_set() and self.is_D_set())
@@ -269,16 +246,16 @@ class HSMTester(unittest.TestCase):
         assert(self.is_A_clr() and self.is_B_clr())
 
         response = sm.start()
-        assert(not response.did_act())
-        assert(not response.was_transition_requested())
-        assert(None == response.get_target())
+        assert(not response.event_res.did_act())
+        assert(not response.event_res.was_transition_requested())
+        assert(None == response.event_res.transition.target)
         assert(self.is_A_set() and self.is_B_set())
 
         response = sm.stop()
         assert(self.is_A_set() and self.is_B_set())
-        assert(not response.did_act())
-        assert(not response.was_transition_requested())
-        assert(None == response.get_target())
+        assert(not response.event_res.did_act())
+        assert(not response.event_res.was_transition_requested())
+        assert(None == response.event_res.transition.target)
         assert(self.is_A_set() and self.is_B_set())
         
     

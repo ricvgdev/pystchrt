@@ -16,7 +16,7 @@ class TestEvent(fsm.Event):
 class TestState(fsm.State):
 
     def __init__(self):
-        fsm.State.__init__(self, name="")
+        fsm.State.__init__(self)
     
 
 class Test(unittest.TestCase):

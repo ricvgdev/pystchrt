@@ -3,131 +3,57 @@ Hierarchical State Machine
 '''
 import fsm
 
+
 class Event(fsm.Event):
     pass
+
 
 class TransitionWithGuardAndEffect(fsm.TransitionWithGuardAndEffect):
     pass
 
+
 class TransitionWithGuard(fsm.TransitionWithGuard):
     pass
+
 
 class TransitionWithEffect(fsm.TransitionWithEffect):
     pass
 
+
 class Transition(fsm.Transition):
     pass
 
+
 class ActivityWithGuard(fsm.ActivityWithGuard):
     pass
+
 
 class Activity(fsm.Activity):
     pass
 
 
-class OldTransition(fsm.Transition):
-
-    def react(self, event):
-        # Do pre-action test. If True, continue with transition.
-        # Else, let the upstream logic figure out appropriate response.
-        if not self.pre_trans_action_test(event):
-            return None
-
-        if self.action != None:
-            # Do action if available.
-            self.action(event)
-        
-        source_stack = self.__get_parent_stack(self.source)
-        source_set = set(source_stack)
-        target_stack = self.__get_parent_stack(self.target)
-        target_set = set(target_stack)
-        common_set = target_set & source_set
-        exit_set = source_set - common_set
-        enter_set = target_set - common_set
-        
-        exit_stack = [st for st in source_stack if st in exit_set ]
-        enter_stack = [st for st in target_stack if st in enter_set ]
-
-        for st in exit_stack:
-            st.exit(follow_final_trans = False)
-        
-        last_state = self.target
-        for i, st in enumerate(enter_stack):
-            do_unnamed = False
-            do_init = False
-            if len(enter_stack) == i + 1:
-                do_unnamed = True
-                do_init = True
-            last_state = st.enter(follow_unnamed_trans = do_unnamed, follow_init_trans = do_init)
-        
-        # Transition completed. Return new state.
-        return last_state
-    
-    def __get_parent_stack(self, state):
-        st = state
-        stack = []
-        while True:
-            stack.append(st)
-            st = st.parent
-            if st == None:
-                break
-        stack.reverse()
-        return stack
-
 class TransitionAndActivityResult(fsm.TransitionAndActivityResult):
     pass
-
-class StimulusResponseDict(dict):
-    
-    def __init__(self, init_dict):
-        dict.__init__(self)
-        # Trigger own __setitem__
-        for key in init_dict:
-            self[key] = init_dict[key]
-    
-    def __setitem__(self, key, value):
-        assert(isinstance(key, (SimpleState)))
-        assert(isinstance(value, (fsm.TransitionAndActivityResult)))
-        dict.__setitem__(self, key, value)
-    
-    def add_response_dict(self, res_dict):
-        assert(isinstance(res_dict, (StimulusResponseDict)))
-        self.update(res_dict)
-    
-    def did_act_or_requested_transition(self):
-        return self.did_act() or self.was_transition_requested()
-    
-    def did_act(self):
-        for key in self:
-            if self[key].did_act():
-                return True
-        return False
-    
-    def was_transition_requested(self):
-        for key in self:
-            if self[key].was_transition_requested():
-                return True
-        return False
 
 
 class SimpleState(fsm.State):
 
-    def __init__(self, name = ''):
-        fsm.State.__init__(self, name = name)
+    def __init__(self):
+        fsm.State.__init__(self)
         self.parent = None
     
     def process_event(self, event):
-        single_response = fsm.State.process_event(self, event)
-        if not single_response.did_act_or_requested_transition() and self.has_parent():
+        trans_and_act_res = fsm.State.process_event(self, event)
+        if not trans_and_act_res.did_act_or_requested_transition() and self.has_parent():
             return self.parent.process_event(event)
         else:
-            return single_response
+            return trans_and_act_res
     
     def start(self):
-        return TransitionAndActivityResult(False, False, None)
+        return TransitionAndActivityResult.buildUntriggeredActivityAndTransition()
     
     def stop(self):
-        return TransitionAndActivityResult(False, False, None)
+        return TransitionAndActivityResult.buildUntriggeredActivityAndTransition()
     
     def has_parent(self):
         return None != self.parent
@@ -166,8 +92,8 @@ class CompositeState(fsm.FSM, SimpleState):
     class FinalState(SimpleState, fsm.FSM.FinalState):
         pass 
     
-    def __init__(self, states = [], name = ''):
-        SimpleState.__init__(self, name = name)
+    def __init__(self, states = []):
+        SimpleState.__init__(self)
         fsm.FSM.__init__(self, states, initial = CompositeState.InitialState(),
                          final = CompositeState.FinalState())
     
@@ -226,7 +152,7 @@ class HSM(object):
 
         source_stack = self.current.get_parent_stack()
         source_set = set(source_stack)
-        target_stack = response.get_target().get_parent_stack()
+        target_stack = response.transtion.target.get_parent_stack()
         target_set = set(target_stack)
         common_set = target_set & source_set
         exit_set = source_set - common_set

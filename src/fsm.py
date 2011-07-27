@@ -416,6 +416,12 @@ class TransitionAndActivityResult:
     def was_transition_requested(self):
         return None != self.transition.target
     
+    def did_act(self):
+        return self.activity.was_handler_triggered()
+    
+    def did_act_or_requested_transition(self):
+        return self.was_transition_requested() or self.did_act()
+    
     @staticmethod
     def buildUntriggeredActivityAndTransition():
         return TransitionAndActivityResult(
@@ -437,9 +443,8 @@ class State:
         pass
     
     @abstractmethod
-    def __init__(self, name = ''):
+    def __init__(self):
         object.__init__(self)
-        self.name = name
         self.activities = EventDictOfActivities()
         self.transitions = EventDictOfTransitions()
         self._active = False
@@ -489,14 +494,10 @@ class State:
         return self._active
     
     def get_name(self):
-        if self.name != '':
-            return self.name
-        else:
-            return self.__class__.__name__
+        return self.__class__.__name__
     
     def info(self, level = 0, indent = '  '):
         return "{indent}{name}: State".format(indent=level*indent, name=str(self))
-
 
     def __repr__(self):
         return self.get_name()
@@ -522,7 +523,7 @@ class FSM(object):
     class InitialState(State):
         
         def __init__(self):
-            State.__init__(self, name="")
+            State.__init__(self)
 
         def set_initial_transition(self, other):
             transition = Transition(target=other)
@@ -533,7 +534,7 @@ class FSM(object):
     class FinalState(State):
 
         def __init__(self):
-            State.__init__(self, name="")
+            State.__init__(self)
 
         def add_final_transition_to_other(self, other):
             if other != self:
