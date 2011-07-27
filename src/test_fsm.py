@@ -101,12 +101,12 @@ class Test(unittest.TestCase):
     def is_F_clr(self, event=None):
         return not self.F
     
-    def test01_TransitionWithGuardAndEffect(self):
+    def test01_TransitionWithGuardAndAction(self):
         event = TestEvent()
         state = TestState()
-        transition = fsm.TransitionWithGuardAndEffect(guard=self.is_A_set,
+        transition = fsm.TransitionWithGuardAndAction(guard=self.is_A_set,
                                                       target=state,
-                                                      effect=self.set_B)
+                                                      action=self.set_B)
         assert(self.is_A_clr() and self.is_B_clr())
 
         result = transition.process_event(event)
@@ -122,10 +122,10 @@ class Test(unittest.TestCase):
         assert(result.target == state)
         assert(self.is_A_set() and self.is_B_set())
 
-    def test02_TransitionWithEffect(self):
+    def test02_TransitionWithAction(self):
         event = TestEvent()
         state = TestState()
-        trans_with_effect = fsm.TransitionWithEffect(target=state, effect=self.set_A)
+        trans_with_effect = fsm.TransitionWithAction(target=state, action=self.set_A)
 
         assert(self.is_A_clr())
 
@@ -179,12 +179,12 @@ class Test(unittest.TestCase):
         event = TestEvent()
         stateA = TestState()
         stateB = TestState()
-        transA = fsm.TransitionWithGuardAndEffect(guard=self.is_A_set,
+        transA = fsm.TransitionWithGuardAndAction(guard=self.is_A_set,
                                                   target=stateA,
-                                                  effect=self.set_C)
-        transB = fsm.TransitionWithGuardAndEffect(guard=self.is_B_set,
+                                                  action=self.set_C)
+        transB = fsm.TransitionWithGuardAndAction(guard=self.is_B_set,
                                                   target=stateB,
-                                                  effect=self.set_D)
+                                                  action=self.set_D)
         transitions = fsm.TransitionList()
         transitions.add_handler(transA)
         transitions.add_handler(transB)
@@ -345,11 +345,11 @@ class Test(unittest.TestCase):
         ev4 = Event4()
         to_A = fsm.Transition(stateA)
         to_B_if_B_set = fsm.TransitionWithGuard(guard=self.is_B_set, target=stateB)
-        set_C_and_go_to_C = fsm.TransitionWithEffect(target=stateC, effect=self.set_C)
-        set_D_and_go_to_D_if_A_set = fsm.TransitionWithGuardAndEffect(
+        set_C_and_go_to_C = fsm.TransitionWithAction(target=stateC, action=self.set_C)
+        set_D_and_go_to_D_if_A_set = fsm.TransitionWithGuardAndAction(
                                             guard=self.is_A_set,
                                             target=stateD,
-                                            effect=self.set_D)
+                                            action=self.set_D)
         trans_dict = fsm.EventDictOfTransitions()
         trans_dict.add_handler(ev1, to_A)
         trans_dict.add_handler(ev2, to_B_if_B_set)
@@ -541,11 +541,11 @@ class Test(unittest.TestCase):
         ev4 = Event4()
         to_A = fsm.Transition(stateA)
         to_B_if_B_set = fsm.TransitionWithGuard(guard=self.is_B_set, target=stateB)
-        set_C_and_go_to_C = fsm.TransitionWithEffect(target=stateC, effect=self.set_C)
-        set_D_and_go_to_D_if_A_set = fsm.TransitionWithGuardAndEffect(
+        set_C_and_go_to_C = fsm.TransitionWithAction(target=stateC, action=self.set_C)
+        set_D_and_go_to_D_if_A_set = fsm.TransitionWithGuardAndAction(
                                             guard=self.is_A_set,
                                             target=stateD,
-                                            effect=self.set_D)
+                                            action=self.set_D)
     
         state.add_transition(ev1, to_A)
         state.add_transition(ev2, to_B_if_B_set)

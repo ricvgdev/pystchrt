@@ -198,7 +198,7 @@ class SodaMachine(object):
 
         self.idle.add_enter_activity(do_set_screen_ready)
 
-        to_waitingForFunds_while_adding_funds = fsm.TransitionWithEffect(
+        to_waitingForFunds_while_adding_funds = fsm.TransitionWithAction(
                 target=self.waitingForFunds,
                 effect=self.add_coin_to_bin)
         self.idle.add_handler(event=CoinDeposited,

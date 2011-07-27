@@ -61,14 +61,14 @@ def nop(*args, **kargs):
 
 
 class EventHandlerResult:
-    """Abstract type used to define generic behavior for result objects"""
+    """Abstract type used to encapsulate event handler results."""
     
     __metaclass__ = ABCMeta
     
     @abstractmethod
     def __init__(self, handler):
         """Builds by default a result as if the handler's guard returned
-        False and no effect method was executed, then it retrieves the
+        False and no action method was executed, then it retrieves the
         actual guard result if handler is valid."""
         self.__setAsIfHandlerDidNothing()
         self.__getHandlerGuardResultIfHandlerIsNotNone(handler)
@@ -86,51 +86,53 @@ class EventHandlerResult:
         
     @staticmethod
     def __assertArgIsAnEventHandler(arg):
-        assert(isinstance(arg, EventHandlerWithGuardAndEffect))
+        assert(isinstance(arg, EventHandlerWithGuardAndAction))
     
 
-class EventHandlerWithGuardAndEffect:
+class EventHandlerWithGuardAndAction:
     """Abstract class with general functionality for event handlers"""
     
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def __init__(self, guard, effect, result_type):
-        """Event handler requires a guard and effect method and the response
-        type to be returned when an event is processed"""
+    def __init__(self, guard, action, result_type):
+        """
+        Event handler requires a guard and an action methods and the result
+        type to be returned when an event is handled.
+        """
         self.guard = guard
-        self.effect = effect
+        self.action = action
         self.last_event = None
         self.guard_result = None
         self.last_response = None
-        self.__response_type = result_type
-        self.__assertResponseTypeisSubclassOfEventHandlerResponse()
+        self.__result_type = result_type
+        self.__assertResponseTypeisSubclassOfEventHandlerResult()
     
-    def __assertResponseTypeisSubclassOfEventHandlerResponse(self):
-        assert(issubclass(self.__response_type, EventHandlerResult))
+    def __assertResponseTypeisSubclassOfEventHandlerResult(self):
+        assert(issubclass(self.__result_type, EventHandlerResult))
     
     def process_event(self, event):
-        """Executes effect method if guard is True and return an instance
-        of self.__response_type"""
+        """Executes the action if the guard is True and return an instance
+        of self.__result_type"""
         self.last_event = event
         self.__execGuardAndAssertOutputIsBoolean()
-        self.__execEffectIfGuardResultIsTrue()
-        self.__buildResponseWithGuardResult()
+        self.__execActionIfGuardResultIsTrue()
+        self.__buildHandlerResult()
         return self.last_response
 
-    def __execEffectIfGuardResultIsTrue(self):
-        self.__assertEffectIsNotNone()
+    def __execActionIfGuardResultIsTrue(self):
+        self.__assertActionIsNotNone()
         if self.guard_result:
-            self.effect(self.last_event)
+            self.action(self.last_event)
 
-    def __buildResponseWithGuardResult(self):
-        self.last_response = self.__response_type(self)
+    def __buildHandlerResult(self):
+        self.last_response = self.__result_type(self)
     
     def __assertGuardIsNotNone(self):
         assert(not self.guard is None)
         
-    def __assertEffectIsNotNone(self):
-        assert(not self.effect is None)
+    def __assertActionIsNotNone(self):
+        assert(not self.action is None)
         
     def __execGuardAndAssertOutputIsBoolean(self):
         self.__assertGuardIsNotNone()
@@ -144,13 +146,13 @@ class EventHandlerWithGuardAndEffect:
         return self.get_name()
 
     def get_name(self):
-        effect = self.effect.__name__
+        action = self.action.__name__
         guard = self.guard.__name__
         
         if self.guard == alwaysTrueGuard:
-            out = '{effect}()'.format(effect=effect)
+            out = '{action}()'.format(action=action)
         else:
-            out = '[{guard}] {effect}()'.format(effect=effect, guard=guard)
+            out = '[{guard}] {action}()'.format(action=action, guard=guard)
         return out
 
 
@@ -173,42 +175,45 @@ class TransitionResult(EventHandlerResult):
 
 
 
-class TransitionWithGuardAndEffect(EventHandlerWithGuardAndEffect):
-    """Transition that executes an effect if the guard is True"""
+class TransitionWithGuardAndAction(EventHandlerWithGuardAndAction):
+    """Transition that executes an action if the guard is True"""
     
-    def __init__(self, guard, target, effect):
-        EventHandlerWithGuardAndEffect.__init__(self, guard, effect, TransitionResult)
+    def __init__(self, guard, target, action):
+        EventHandlerWithGuardAndAction.__init__(self, guard = guard,
+                                action = action, result_type = TransitionResult)
         self.target = target
     
     def get_name(self):
-        name = EventHandlerWithGuardAndEffect.get_name(self) + ' -> '
+        name = EventHandlerWithGuardAndAction.get_name(self) + ' -> '
         if None != self.target:
             name += self.target.get_name()
         return name
     
 
-class TransitionWithGuard(TransitionWithGuardAndEffect):
+class TransitionWithGuard(TransitionWithGuardAndAction):
     """Transition that is only valid if the guard returns True"""
 
     def __init__(self, guard, target):
-        TransitionWithGuardAndEffect.__init__(self, guard=guard,
-                                              target=target, effect=nop)
+        TransitionWithGuardAndAction.__init__(self, guard=guard,
+                                              target=target, action=nop)
 
 
-class TransitionWithEffect(TransitionWithGuardAndEffect):
-    """Transition that is always valid and that executes an effect"""
+class TransitionWithAction(TransitionWithGuardAndAction):
+    """
+    Transition that is always valid and by consequence always executes an action
+    """
 
-    def __init__(self, target, effect):
-        TransitionWithGuardAndEffect.__init__(self, guard=alwaysTrueGuard,
-                                              target=target, effect=effect)
+    def __init__(self, target, action):
+        TransitionWithGuardAndAction.__init__(self, guard = alwaysTrueGuard,
+                                              target = target, action = action)
 
 
-class Transition(TransitionWithGuardAndEffect):
+class Transition(TransitionWithGuardAndAction):
     """Simple transition that is always valid"""
 
     def __init__(self, target):
-        TransitionWithGuardAndEffect.__init__(self, guard=alwaysTrueGuard,
-                                              target=target, effect=nop)
+        TransitionWithGuardAndAction.__init__(self, guard = alwaysTrueGuard,
+                                              target = target, action = nop)
 
 
 class ActivityResult(EventHandlerResult):
@@ -221,13 +226,13 @@ class ActivityResult(EventHandlerResult):
         return ActivityResult(activity=None)
 
 
-class ActivityWithGuard(EventHandlerWithGuardAndEffect):
+class ActivityWithGuard(EventHandlerWithGuardAndAction):
     """Event handler used to execute an action method whenever the guard
     returns True when processing an event."""
     
     def __init__(self, guard, action):
-        EventHandlerWithGuardAndEffect.__init__(self, guard=guard,
-                                effect=action, result_type = ActivityResult)
+        EventHandlerWithGuardAndAction.__init__(self, guard=guard,
+                                action = action, result_type = ActivityResult)
 
 
 class Activity(ActivityWithGuard):
@@ -257,6 +262,8 @@ class EventHandlerList:
             result = handler.process_event(event)
             
             if result.handler_triggered:
+                # It is enough that one action is triggered in order to
+                # return a triggered result.
                 last_result = result
             
                 if self.stop_at_first_trigger:
@@ -271,7 +278,7 @@ class EventHandlerList:
     
     @staticmethod
     def __assertArgIsAnEventHandler(arg):
-        assert(isinstance(arg, (EventHandlerWithGuardAndEffect)))
+        assert(isinstance(arg, (EventHandlerWithGuardAndAction)))
     
     @staticmethod
     def __assertArgIsOfEventHandlerResultType(arg):
@@ -323,7 +330,7 @@ class TransitionList(EventHandlerList):
             self.with_unguarded_transition = True
     
     def __assertIsATransition(self, transition):
-        assert(isinstance(transition, (TransitionWithGuardAndEffect)))
+        assert(isinstance(transition, (TransitionWithGuardAndAction)))
     
     
 

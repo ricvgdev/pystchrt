@@ -8,7 +8,7 @@ class Event(fsm.Event):
     pass
 
 
-class TransitionWithGuardAndEffect(fsm.TransitionWithGuardAndEffect):
+class TransitionWithGuardAndAction(fsm.TransitionWithGuardAndAction):
     pass
 
 
@@ -16,7 +16,7 @@ class TransitionWithGuard(fsm.TransitionWithGuard):
     pass
 
 
-class TransitionWithEffect(fsm.TransitionWithEffect):
+class TransitionWithAction(fsm.TransitionWithAction):
     pass
 
 
