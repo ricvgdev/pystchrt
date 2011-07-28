@@ -471,10 +471,10 @@ class State:
         return exit_response
     
     def start(self):
-        return TransitionAndActivityResult(False, False, None)
+        return ActivityResult.buildResultForUntriggeredActivity()
     
     def stop(self):
-        return TransitionAndActivityResult(False, False, None)
+        return ActivityResult.buildResultForUntriggeredActivity()
     
     def add_enter_activity(self, activity):
         self.add_activity(State.EnterEvent, activity)
