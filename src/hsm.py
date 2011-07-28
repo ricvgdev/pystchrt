@@ -152,7 +152,7 @@ class HSM(object):
 
         source_stack = self.current.get_parent_stack()
         source_set = set(source_stack)
-        target_stack = response.transtion.target.get_parent_stack()
+        target_stack = response.transition.target.get_parent_stack()
         target_set = set(target_stack)
         common_set = target_set & source_set
         exit_set = source_set - common_set
@@ -177,7 +177,7 @@ class HSM(object):
         self.top.state_change_activities.process_event(Event)
         
         start_response = self.current.start()
-        return TransitionAndActivityResult(activity or start_response.did_act(), True, self.current)
+        return TransitionAndActivityResult(response.activity, response.transition)
 
     def fsm_dipatch_to_current(self, event):
         '''_dipatch_to_state(state, event) -> active_state, did_transition'''
