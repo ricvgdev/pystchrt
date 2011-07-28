@@ -64,7 +64,7 @@ class SimpleTurnstile(object):
         
         class Transition(fsm.TransitionWithAction):
             def __init__(self, target, action):
-                fsm.TransitionWithAction.__init__(self, target=target, effect=action)
+                fsm.TransitionWithAction.__init__(self, target=target, action=action)
         
         class TurnstileState(fsm.State):
             __metaclass__ = ABCMeta

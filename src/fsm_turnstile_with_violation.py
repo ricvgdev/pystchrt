@@ -62,10 +62,10 @@ class SimpleTurnstile(object):
             self.start()
 
         def unlock(self, event):
-            pass
+            print "Unlocking turnstile"
         
         def lock(self, event):
-            pass
+            print "Locking turnstile"
         
         def thankyou(self, event):
             print "Thank you!"
@@ -143,22 +143,6 @@ class SimpleTurnstile(object):
         '''
         self.fsm = SimpleTurnstile.FSM()
     
-    def work_until_q_key(self):
-        key = None
-        while key != 'q':
-            key = self.__get_key()
-            if key == 'c':
-                self.dispatch_coin_event()
-            elif key == 'p':
-                self.dispatch_pass_event()
-            elif key == 'r':
-                self.dispatch_reset_event()
-            elif key == 'a':
-                self.dispatch_ready_event()
-            
-    def __get_key(self):
-        return raw_input('> ')
-    
     def dispatch_coin_event(self):
         self.__dispatch_event(SimpleTurnstile.FSM.EventCoin())
     
@@ -176,9 +160,25 @@ class SimpleTurnstile(object):
         self.fsm.process_event(event)
 
 
+def capture_keyboard_and_dispatch_events(turnstile):
+    def __get_key():
+        return raw_input('> ')
+    
+    key = None
+    while key != 'q':
+        key = __get_key()
+        if key == 'c':
+            turnstile.dispatch_coin_event()
+        elif key == 'p':
+            turnstile.dispatch_pass_event()
+        elif key == 'r':
+            turnstile.dispatch_reset_event()
+        elif key == 'a':
+            turnstile.dispatch_ready_event()
+
 def main():
     turnstile = SimpleTurnstile()
-    turnstile.work_until_q_key()
+    capture_keyboard_and_dispatch_events(turnstile)
 
 if __name__=='__main__':
     main()
